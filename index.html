@@ -998,6 +998,8 @@ def('my','H-01','마이페이지',null,()=>`${bigHdr('마이')}<div class="body"
   <b style="font-size:20px">${ME}</b>${meta(myDeals()?`거래 ${myDeals()}건`:'거래 없음',S.sold.length?I('star',12)+'4.9':'')}
   <div class="hcard mt16"><span class="tiny">판매 정산, 출금 가능</span><div class="row mt4"><span class="huge" style="font-size:28px"><span data-up="${avail()}">${won(avail())}</span></span><button class="btn sm" data-go="${S.bank.num?'withdraw':'bank'}" ${avail()>=MIN_WD?'':'disabled'}>출금</button></div>${pending()?`<div class="tiny mt4">정산 예정 ${won(pending())}</div>`:''}</div>
   <div class="list mt16" style="border-top:1px solid var(--line)">${navRow('자동 충전','','auto-charge',`<span class="tag ${S.autoCh.on?'a':''}">${S.autoCh.on?'켜짐':'꺼짐'}</span>`,'','zap')}${navRow('연결된 AI','','accounts',`<span class="tiny">${Object.keys(S.linked).filter(k=>S.linked[k]).join(', ')||'없음'}</span>`,'','link')}${navRow('알림','','notif-set','','','bell')}${navRow('결제 수단','','pay-manage',`<span class="tiny">${S.cards.length}개</span>`,'','card')}${navRow('정산 계좌','','bank',`<span class="tiny">${S.bank.num?S.bank.name:'미등록'}</span>`,'','wallet')}${navRow('친구 초대','','invite',S.invited?`<span class="tiny">${S.invited}명</span>`:'','','gift')}${navRow('고객센터','','chat','','','help')}${navRow('이용 가이드','','intro1','','data-k="g"','book')}</div>
+  <div class="tiny mt16">과제 제출용</div>
+  <div class="list mt8" style="border-top:1px solid var(--line)"><button class="li" data-act="wfboard"><span class="ri">${I('list',19)}</span><span class="grow"><span class="t" style="font-size:15px">와이어프레임 보기</span><div class="tiny mt4">화면 ${MAIN.length}개와 연결선을 한 화면에서</div></span>${CHEV}</button></div>
  </div>${tabs('my')}`,{tab:true});
 def('accounts','H-02','연결된 AI 계정 관리',null,()=>{const ask=S.unlinkAsk;return `${hdr('연결된 AI')}<div class="body">
   <div class="list">${['Claude','GPT','Gemini'].map(m=>{const on=S.linked[m];return `<div class="li ${S.newLink===m?'slidein':''}"><span class="grow"><span class="t">${m}</span><div class="tiny mt4">${on?`${!canSell(m)?'무료 이용':BASE[m]+' 구독'}${m===S.sellM?', 판매용':''}`:'미연결'}</div></span>${on?`<span class="tag a">${I('shield',12)}</span><button class="btn sm s" data-act="unlinkask" data-m="${m}" style="color:var(--bad)">해제</button>`:`<button class="btn sm s" data-go="oauth" data-m="${m}" data-add="1">연결</button>`}</div>`;}).join('')}</div>
@@ -1162,6 +1164,7 @@ function toast(m){scr.querySelectorAll('.toast').forEach(e=>e.remove());const d=
 const later=(f,ms=320)=>setTimeout(f,window.__still?0:ms);
 
 const A={
+ wfboard:()=>buildBoard('all',{view:true,wf:true,wfBack:S.wf}),
  back,
  cart:d=>{const l=byId(d.id),was=S.cart.size;S.cart.has(d.id)?S.cart.delete(d.id):S.cart.set(d.id,l.cr);S.cartTouched=true;S._popFoot=!was&&S.cart.size>0;render();},
  cartx:(d,el)=>{const row=el.closest('.li');S.cartTouched=true;const fin=()=>{S.cart.delete(d.id);render();};if(reduce||!row){fin();return;}const h=row.offsetHeight;row.animate([{opacity:1,height:h+'px'},{opacity:0,height:'0px',paddingTop:'0px',paddingBottom:'0px'}],{duration:240,easing:'ease-in'}).onfinish=fin;},
