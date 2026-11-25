@@ -1,0 +1,17 @@
+{
+  "name": "크레셀",
+  "short_name": "크레셀",
+  "description": "AI 구독의 남는 사용량을 팔고, 한도에 걸리면 필요한 만큼만 사서 이어 쓰는 앱 (시연용 프로토타입)",
+  "lang": "ko",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111111",
+  "theme_color": "#0f6b55",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

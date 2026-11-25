@@ -1,0 +1,1381 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f6b55">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="크레셀">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head><body>
+<title>크레셀 프로토타입</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 레이아웃: 왼쪽 화면 목록, 가운데 폰 한 대. 앱 안은 흰 바탕, 먹색 글자, 초록은 가격과 선택에만 */
+:root{
+  --bg:#eceeed; --fg:#16191b; --muted:#646b6f; --panel:#ffffff; --pline:#d8dcda; --accent:#0f6b55; --chip:#e7ebe9;
+  --f-ui:"IBM Plex Sans KR","Pretendard","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#121615;--fg:#e7ebe9;--muted:#9aa3a0;--panel:#1b201f;--pline:#2d3533;--accent:#5cc3a2;--chip:#24302c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121615;--fg:#e7ebe9;--muted:#9aa3a0;--panel:#1b201f;--pline:#2d3533;--accent:#5cc3a2;--chip:#24302c;color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer}
+.shell{display:grid;grid-template-columns:288px minmax(0,1fr);gap:28px;max-width:1160px;margin:0 auto;padding-block:24px;min-height:100%}
+.panel{background:var(--panel);border:1px solid var(--pline);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 48px);position:sticky;top:24px;min-width:0}
+.panel h1{font-size:19px;margin:0}
+.panel .lead{font-size:12.5px;color:var(--muted);line-height:1.6;margin:6px 0 0}
+.seg2{display:grid;grid-template-columns:1fr 1fr;background:var(--chip);border-radius:8px;padding:3px}
+.seg2 button{border:0;background:transparent;padding:7px 6px;font-size:12.5px;color:var(--muted);border-radius:6px;transition:background .15s,color .15s}
+.seg2 button[aria-pressed="true"]{background:var(--panel);color:var(--fg);font-weight:600}
+.lbl{font-size:11.5px;color:var(--muted);font-weight:600}
+.idx{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:14px;padding-right:4px}
+.idx h3{font-size:12px;margin:0 0 4px;color:var(--muted);font-weight:600}
+.idx button{display:flex;gap:8px;width:100%;text-align:left;border:0;background:transparent;padding:5px 8px;border-radius:6px;font-size:13px;align-items:baseline}
+.idx button:hover{background:var(--chip)}
+.idx button[aria-current="true"]{background:var(--chip);font-weight:600}
+.idx code{font-family:inherit;font-size:11px;color:var(--muted);min-width:30px;font-variant-numeric:tabular-nums}
+.stage{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:0}
+.cap{font-size:13px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.cap b{color:var(--fg);font-weight:600}
+.cap code{font-family:inherit;background:var(--chip);padding:2px 7px;border-radius:5px;color:var(--fg);font-variant-numeric:tabular-nums}
+.navbtn{border:1px solid var(--pline);background:var(--panel);border-radius:8px;padding:6px 12px;font-size:12.5px}
+.navbtn:focus-visible,.idx button:focus-visible,.seg2 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mobsel{display:none}
+/* 앱으로 설치해 열었을 때: 패널과 폰 테두리 없이 화면 전체가 앱 */
+html.app,html.app body{margin:0;height:100%;overflow:hidden;background:#111}
+html.app .shell{display:block;padding:0;max-width:none;min-height:0}
+html.app .panel,html.app .cap{display:none}
+html.app .stage{display:block}
+html.app .fit{max-width:none;width:auto}
+html.app .phone{padding:0;background:transparent;border-radius:0;box-shadow:none}
+html.app .scr{border-radius:0}
+html.app .scr .sbar{height:14px;visibility:hidden}
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr);gap:14px;padding-block:12px}
+  .panel{position:static;max-height:none}
+  .idx{display:none}
+  .mobsel{display:block;width:100%;padding:8px;border-radius:8px;border:1px solid var(--pline);background:var(--panel);color:var(--fg);font:inherit}
+}
+
+/* ===== 폰 ===== */
+.fit{width:390px;max-width:100%}
+.phone{width:390px;height:844px;border-radius:50px;background:#101213;padding:10px;box-shadow:0 2px 6px rgba(0,0,0,.18);transform-origin:top left}
+.scr{
+  --ink:#111418;--ink2:#3c4247;--sub:#767d82;--line:#e7e9e8;--fill:#f3f4f3;--paper:#ffffff;
+  --acc:#0f6b55;--warn:#a35a00;--bad:#b3362e;--r:10px;
+  position:relative;width:100%;height:100%;border-radius:41px;overflow:hidden;background:var(--paper);color:var(--ink);
+  display:flex;flex-direction:column;font-family:var(--f-ui);font-size:14px;color-scheme:light;font-variant-numeric:tabular-nums;word-break:keep-all;overflow-wrap:anywhere
+}
+.view{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+.sbar{height:46px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 30px 0;font-size:14px;font-weight:600}
+.sbar .r{display:flex;gap:6px;align-items:center;font-size:12px}
+.sbar .bat{width:24px;height:12px;border:1.5px solid currentColor;border-radius:3px;position:relative;opacity:.9}
+.sbar .bat::after{content:"";position:absolute;top:1.5px;bottom:1.5px;left:1.5px;width:13px;background:currentColor;border-radius:1px}
+.hdr{height:52px;flex:none;display:flex;align-items:center;gap:4px;padding:0 12px 0 6px}
+.hdr h2{font-size:17px;font-weight:700;margin:0;flex:1}
+.hdr.big{padding-left:20px}
+.hdr.big h2{font-size:22px}
+.iconbtn{width:40px;height:40px;border:0;background:transparent;border-radius:8px;display:grid;place-items:center;color:var(--ink)}
+.iconbtn:active{background:var(--fill)}
+.body{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 20px 28px;scrollbar-width:none}
+.body::-webkit-scrollbar{display:none}
+.foot{flex:none;padding:10px 20px 26px;background:var(--paper);display:flex;flex-direction:column;gap:6px}
+.foot.line{border-top:1px solid var(--line)}
+.tabs{flex:none;display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);padding:8px 6px 24px;background:var(--paper)}
+.tabs button{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:#9aa0a4;transition:color .15s}
+.tabs button.on{color:var(--ink);font-weight:700}
+.ic{display:inline-grid;place-items:center;flex:none;line-height:0}
+.ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 간격은 관계에 따라: 묶음 안은 촘촘히, 묶음 사이는 넓게 */
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.col{display:flex;flex-direction:column}
+.sub{color:var(--sub);font-size:13px;line-height:1.55}
+.tiny{font-size:12px;color:var(--sub)}
+.acc{color:var(--acc)}
+.title{font-size:24px;font-weight:700;line-height:1.38;letter-spacing:-.5px;margin:0;text-wrap:balance}
+.title.s{font-size:20px}
+.sec{font-size:15px;font-weight:700;margin:0}
+.huge{font-size:34px;font-weight:700;letter-spacing:-.8px;line-height:1.15}
+.big{font-size:22px;font-weight:700;letter-spacing:-.4px}
+.note{font-size:12.5px;color:var(--sub);line-height:1.6;margin:0}
+.block{background:var(--fill);border-radius:var(--r);padding:14px 16px}
+.kv{display:flex;flex-direction:column;gap:10px;font-size:14px}
+.kv .row span:first-child{color:var(--sub)}
+.gauge{height:6px;border-radius:3px;background:var(--fill);overflow:hidden}
+.gauge i{display:block;height:100%;background:var(--ink);border-radius:3px;transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.gauge.a i{background:var(--acc)}
+.gauge.w i{background:var(--warn)}
+.btn{height:52px;border-radius:var(--r);border:0;background:var(--ink);color:#fff;font-weight:600;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;transition:transform .12s,background .15s}
+.btn:active{transform:scale(.985)}
+.btn.s{background:var(--fill);color:var(--ink)}
+.btn.t{background:transparent;color:var(--sub);height:42px;font-weight:500;font-size:14px}
+.btn.sm{height:36px;width:auto;padding:0 14px;font-size:13px;border-radius:8px}
+.btn[disabled]{background:#cfd4d1;color:#fff}
+.link{border:0;background:transparent;padding:0;color:var(--acc);font-weight:600;font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--ink2);transition:background .15s,color .15s,border-color .15s}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.tabline{display:flex;gap:18px;border-bottom:1px solid var(--line)}
+.tabline button{border:0;background:transparent;padding:10px 0 9px;font-size:14px;color:var(--sub);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabline button.on{color:var(--ink);font-weight:700;border-color:var(--ink)}
+.tabline button,.chip{display:inline-flex;align-items:center;gap:6px}
+.tabline button:not(.on) .aic{opacity:.5;transition:opacity .15s}
+.tag{font-size:11.5px;font-weight:600;color:var(--sub)}
+.tag.a{color:var(--acc)}.tag.w{color:var(--warn)}
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);background:transparent;border-left:0;border-right:0;border-top:0;text-align:left;width:100%;transition:background .4s}
+.li:last-child{border-bottom:0}
+.li .grow{flex:1;min-width:0}
+.li .t{font-size:15px;font-weight:600}
+.li.fresh{animation:fresh 2.4s ease-out}
+@keyframes fresh{0%{background:#e3f1eb}100%{background:transparent}}
+.av{width:40px;height:40px;border-radius:50%;background:var(--fill);display:grid;place-items:center;font-weight:600;font-size:15px;color:var(--ink2);flex:none}
+.av.lg{width:64px;height:64px;font-size:24px}
+.ck{width:22px;height:22px;border-radius:6px;border:1.5px solid #c4cac7;display:grid;place-items:center;flex:none;color:#fff;background:var(--paper);transition:background .15s,border-color .15s,transform .12s;padding:0}
+.ck:active{transform:scale(.9)}
+.ck.on{background:var(--acc);border-color:var(--acc)}
+.radio{width:22px;height:22px;border-radius:50%;border:1.5px solid #c4cac7;flex:none;transition:border-width .15s,border-color .15s}
+.radio.on{border:7px solid var(--ink)}
+.tog{width:46px;height:28px;border-radius:14px;background:#d3d8d5;position:relative;border:0;flex:none;transition:background .2s}
+.tog::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s cubic-bezier(.3,.7,.3,1)}
+.tog.on{background:var(--acc)}
+.tog.on::after{left:21px}
+.price{font-size:15px;font-weight:700}
+.perh{font-size:12px;color:var(--sub)}
+.center{display:flex;flex-direction:column;align-items:center;text-align:center}
+.steps{display:flex;flex-direction:column;gap:18px}
+.step{display:flex;gap:12px;align-items:center;font-size:15px;color:#a3a9ad;transition:color .3s}
+.step .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1.5px solid #d3d8d5;flex:none;color:#fff;transition:background .3s,border-color .3s}
+.step.ok{color:var(--ink)}
+.step.ok .dot{background:var(--acc);border-color:var(--acc)}
+.step.now{color:var(--ink);font-weight:600}
+.step.now .dot{border-color:var(--acc);border-top-color:transparent;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{width:44px;height:44px;border-radius:50%;border:3px solid var(--fill);border-top-color:var(--ink);animation:spin .8s linear infinite}
+.drawcheck circle{stroke-dasharray:64;stroke-dashoffset:0}
+.drawcheck path{stroke-dasharray:14;stroke-dashoffset:0}
+.entering .drawcheck circle{animation:dash1 .5s ease-out both}
+.entering .drawcheck path{animation:dash2 .3s .4s ease-out both}
+@keyframes dash1{from{stroke-dashoffset:64}}
+@keyframes dash2{from{stroke-dashoffset:14}}
+.entering .gauge i{animation:grow .7s cubic-bezier(.2,.7,.2,1) both}
+@keyframes grow{from{width:0}}
+.clock{font-size:30px;font-weight:600;letter-spacing:-.5px}
+.stars{display:flex;gap:8px;justify-content:center}
+.stars button{border:0;background:transparent;color:#d3d8d5;padding:0;transition:color .15s,transform .15s}
+.stars button:active{transform:scale(.88)}
+.stars button.on{color:#e0a100}
+.stars button.on svg{fill:currentColor}
+.field{border-bottom:1.5px solid var(--line);padding:12px 2px;display:flex;align-items:center;gap:10px;font-size:16px;transition:border-color .15s}
+.field:focus-within{border-color:var(--ink)}
+.field input{border:0;outline:0;font:inherit;flex:1;min-width:0;background:transparent;color:var(--ink)}
+.search{background:var(--fill);border-radius:var(--r);padding:10px 12px;display:flex;gap:8px;align-items:center;flex:1}
+.search input{border:0;outline:0;background:transparent;font:inherit;flex:1;min-width:0;color:var(--ink)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:26px}
+.stepper button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--paper);display:grid;place-items:center;transition:transform .12s}
+.stepper button:active{transform:scale(.9)}
+.stepper .v{font-size:40px;font-weight:700;min-width:120px;text-align:center;letter-spacing:-1px}
+.stepper .v small{font-size:16px;font-weight:600;margin-left:2px}
+.chart{display:flex;align-items:flex-end;gap:10px;height:120px}
+.chart .c{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.chart .c i{display:block;width:100%;border-radius:4px 4px 0 0;background:#d9dddb;transform-origin:bottom}
+.chart .c i.on{background:var(--ink)}
+.chart .c i.p{background:transparent;border:1.5px dashed #9aa0a4;border-bottom:0}
+.chart .c span{font-size:11px;color:var(--sub)}
+.chart .c .bt{flex:1 1 0;min-height:0;width:100%;display:flex;align-items:flex-end}
+.chart .c .bt i{flex:none}
+.scr.keep .sheet,.scr.keep .sheet-bg{animation:none}
+.wm{font-size:21px;font-weight:800;letter-spacing:1.5px}
+.aic{display:inline-grid;place-items:center;border-radius:28%;color:#fff;font-weight:800;letter-spacing:-.5px;flex:none;line-height:1;vertical-align:middle}
+.tag .aic{margin-right:3px;vertical-align:-3px}
+.aigrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.aitile{border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:14px 6px 12px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.aitile b{font-size:15px}
+.chg-ic{display:flex;justify-content:center;margin-bottom:28px}
+.chg-ic .aic{border-radius:26px;box-shadow:0 10px 28px rgba(0,0,0,.14);animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.05)}}
+.fly{position:absolute;z-index:6;pointer-events:none;will-change:transform,opacity}
+.scr.wf .aic{background:#cfcfcf!important;box-shadow:none}.scr.wf .aic path{fill:#8a8a8a}
+.aic.lite{box-shadow:inset 0 0 0 1px #e1e4e2}
+.splash .aic{box-shadow:0 0 0 1px rgba(255,255,255,.28)}
+.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--sub)}
+.meta span{display:inline-flex;align-items:center;gap:3px}
+.nm{font-size:13px;font-weight:400;color:var(--ink2)}
+.off{font-size:12px;font-weight:700;color:var(--acc)}
+.tag.bst{color:#7a5a00;background:#fbf1d6;padding:1px 6px;border-radius:4px;font-size:10.5px;vertical-align:2px}
+.ri{width:36px;height:36px;border-radius:10px;background:var(--fill);display:grid;place-items:center;color:var(--ink2);flex:none}
+.ri.lg{width:56px;height:56px;border-radius:16px}
+.hcard{background:var(--fill);border-radius:14px;padding:16px}
+.hcard .tag{background:var(--paper);padding:3px 8px;border-radius:6px;color:var(--ink2)}
+.plain{width:100%;border:0;background:transparent;padding:0;text-align:left}
+.tile{flex:1;display:flex;gap:10px;align-items:center;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:12px;text-align:left;min-width:0}
+.tile b{font-size:14px;white-space:nowrap}
+.mini{border:0;background:transparent;display:flex;gap:4px;align-items:center;font-size:12.5px;color:var(--ink2);padding:0}
+.boost{border:1px solid var(--line);border-radius:12px;padding:12px;gap:12px;transition:border-color .2s,background .2s}
+.boost.on{border-color:var(--acc);background:#f1f8f5}
+/* 스플래시 타이포 */
+.splash{position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px 44px;background:var(--ink);color:#fff;overflow:hidden}
+.sp-v{position:absolute;right:18px;top:22px;writing-mode:vertical-rl;font-size:70px;font-weight:800;line-height:1;letter-spacing:3px}
+.sp-v i{font-style:normal;display:inline-block}
+.sp-h{margin:0;display:flex;flex-direction:column;font-size:31px;font-weight:700;letter-spacing:-1px;line-height:1.22}
+.sp-h .w{display:block}
+.sp-h .big{font-size:64px;letter-spacing:-2px}
+.sp-h .l2{color:#5fd3a8}
+.sp-ai{display:flex;gap:8px;align-items:center;margin-top:22px}.sp-ai>span:last-child{font-size:13px;color:rgba(255,255,255,.6);margin-left:4px}
+.entering .sp-ai .aic{animation:popin .45s 1.05s both}.entering .sp-ai .aic:nth-child(2){animation-delay:1.17s}.entering .sp-ai .aic:nth-child(3){animation-delay:1.29s}
+.entering .sp-ai>span:last-child{animation:fadein .4s 1.45s both}
+.sp-mq{position:absolute;left:0;right:0;bottom:16px;overflow:hidden;white-space:nowrap;border-top:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14);padding:9px 0;font-size:12.5px;color:rgba(255,255,255,.55)}
+.mq-in{display:inline-block;animation:mq 16s linear infinite}
+.mq-in span{margin-right:28px}
+@keyframes mq{to{transform:translateX(-50%)}}
+.entering .sp-v i{animation:vdrop .7s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-v i:nth-child(2){animation-delay:.07s}.entering .sp-v i:nth-child(3){animation-delay:.14s}.entering .sp-v i:nth-child(4){animation-delay:.21s}.entering .sp-v i:nth-child(5){animation-delay:.28s}.entering .sp-v i:nth-child(6){animation-delay:.35s}.entering .sp-v i:nth-child(7){animation-delay:.42s}
+@keyframes vdrop{from{transform:translateY(-140%);opacity:0}}
+.entering .sp-h .l1{animation:fromL .5s .45s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-h .l2{animation:popin .6s .7s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-h .l3{animation:popin .55s .85s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-h .l4{animation:fromB .5s 1.2s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-h .l5{animation:fromL .5s 1.38s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-h .l6{animation:popin .6s 1.6s cubic-bezier(.2,.8,.2,1) both}
+.entering .sp-mq{animation:fadein .6s 1.9s both}
+.entering .sp-foot .btn{animation:fromB .5s 1.6s both}
+@keyframes fromL{from{transform:translateX(-70px);opacity:0}}
+@keyframes fromR{from{transform:translateX(70px);opacity:0}}
+@keyframes fromB{from{transform:translateY(30px);opacity:0}}
+@keyframes popin{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.06)}100%{transform:none;opacity:1}}
+.scr.wf .splash{background:#e4e4e4;color:#555}.scr.wf .sp-mq{display:none}
+.ben{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
+.ben b{font-size:15px}.ben .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--fill);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--ink2);margin-top:1px}
+.ben.on .n{background:var(--acc);color:#fff}
+.entering .ben.on .n{animation:pop .4s both}
+.entering .ben:nth-child(2) .n{animation-delay:.12s}.entering .ben:nth-child(3) .n{animation-delay:.24s}.entering .ben:nth-child(4) .n{animation-delay:.36s}
+.entering .chart .c i{animation:rise .6s cubic-bezier(.2,.7,.2,1) both}
+.entering .chart .c:nth-child(2) i{animation-delay:.04s}.entering .chart .c:nth-child(3) i{animation-delay:.08s}.entering .chart .c:nth-child(4) i{animation-delay:.12s}.entering .chart .c:nth-child(5) i{animation-delay:.16s}.entering .chart .c:nth-child(6) i{animation-delay:.2s}.entering .chart .c:nth-child(7) i{animation-delay:.24s}
+@keyframes rise{from{transform:scaleY(0)}}
+.sheet-bg{position:absolute;inset:0;background:rgba(12,15,14,.42);display:flex;align-items:flex-end;z-index:5;animation:fadein .2s ease-out}
+.sheet{background:var(--paper);width:100%;border-radius:18px 18px 0 0;padding:10px 20px 28px;display:flex;flex-direction:column;gap:16px;animation:up .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes fadein{from{opacity:0}}
+@keyframes up{from{transform:translateY(100%)}}
+.grab{width:36px;height:4px;border-radius:2px;background:#d3d8d5;margin:0 auto}
+.pop{animation:up .3s cubic-bezier(.2,.8,.2,1)}
+.lockbg{background:#1f2b28;color:#fff}
+.noti{background:rgba(255,255,255,.9);color:#111418;border-radius:16px;padding:12px 14px;display:flex;gap:10px;text-align:left;border:0;width:100%}
+.noti b{font-size:13px}
+.entering .noti{animation:drop .45s cubic-bezier(.2,.8,.2,1) both}
+.entering .noti+.noti{animation-delay:.12s}
+@keyframes drop{from{transform:translateY(-18px);opacity:0}}
+.aibg{background:#f7f6f3}
+.bubble{border-radius:14px;padding:10px 13px;font-size:14px;line-height:1.55;max-width:84%}
+.bubble.me{align-self:flex-end;background:#ebe8e1}
+.bubble.bot{align-self:flex-start;background:#fff;border:1px solid var(--line)}
+.msgs{display:flex;flex-direction:column;gap:10px}
+.code{font-size:26px;letter-spacing:3px;font-weight:700}
+.fade{opacity:.4;pointer-events:none}
+.dots{display:flex;gap:6px}
+.dots i{width:6px;height:6px;border-radius:3px;background:#d3d8d5;transition:width .25s,background .25s}
+.dots i.on{width:18px;background:var(--ink)}
+.toast{position:absolute;left:20px;right:20px;bottom:100px;background:#111418;color:#fff;border-radius:10px;padding:12px 14px;font-size:13.5px;z-index:8;animation:up .25s ease-out}
+.live{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--sub)}
+.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--acc)}
+.track{position:relative;height:4px;border-radius:2px;background:var(--fill)}
+.track i{position:absolute;top:-8px;width:20px;height:20px;border-radius:50%;background:var(--paper);border:2px solid var(--ink);margin-left:-10px;transition:left .2s}
+.track b{position:absolute;top:0;height:4px;background:var(--acc);border-radius:2px}
+.scr .mt4{margin-top:4px}.scr .mt8{margin-top:8px}.scr .mt12{margin-top:12px}.scr .mt16{margin-top:16px}.scr .mt24{margin-top:24px}.scr .mt32{margin-top:32px}
+
+
+/* 3판 추가: 슬라이더, 할인 단계, 채팅, 완료 장면 */
+.slider{position:relative;height:40px;touch-action:none;cursor:pointer;outline:0;margin-top:14px}
+.slider .rail{position:absolute;left:0;right:0;top:18px;height:4px;border-radius:2px;background:var(--fill)}
+.slider .rail b{position:absolute;left:0;top:0;bottom:0;background:var(--acc);border-radius:2px}
+.slider .tick{position:absolute;top:26px;width:1px;height:6px;background:#cfd4d1}
+.slider .knob{position:absolute;top:8px;width:24px;height:24px;margin-left:-12px;border-radius:50%;background:#fff;border:2px solid var(--ink);transition:transform .12s}
+.slider.drag .knob{transform:scale(1.18)}
+.slider:focus-visible .knob{outline:2px solid var(--acc);outline-offset:2px}
+.slider .mark{position:absolute;top:-12px;transform:translateX(-50%);font-size:11px;color:var(--acc);font-weight:600}
+.ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.ladder div{position:relative;padding-top:10px;font-size:11.5px;color:var(--sub)}
+.ladder div::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;border-radius:2px;background:var(--line);transform-origin:left}
+.ladder div.on{color:var(--ink)}
+.ladder div.on::before{background:var(--acc)}
+.ladder b{display:block;font-size:14px;color:inherit;margin-bottom:2px}
+.entering .ladder div::before{animation:bar .5s cubic-bezier(.2,.7,.2,1) both}
+.entering .ladder div:nth-child(2)::before{animation-delay:.08s}.entering .ladder div:nth-child(3)::before{animation-delay:.16s}.entering .ladder div:nth-child(4)::before{animation-delay:.24s}
+@keyframes bar{from{transform:scaleX(0)}}
+.scr mark{background:transparent;color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.chart .c em{font-style:normal;font-size:10.5px;color:var(--sub)}
+.entering .chart .c em{animation:fadein .3s .6s both}
+.entering .chart .c i.p{animation:rise .6s .55s cubic-bezier(.2,.7,.2,1) both}
+.split{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--fill)}
+.split i{display:block;height:100%}
+.entering .split i{animation:grow .6s cubic-bezier(.2,.7,.2,1) both}
+.entering .split i:nth-child(2){animation-delay:.2s}.entering .split i:nth-child(3){animation-delay:.4s}
+.step .dot .ic{opacity:0;transform:scale(.3);transition:opacity .2s,transform .25s cubic-bezier(.3,1.6,.5,1)}
+.step.ok .dot .ic{opacity:1;transform:none}
+.gauge.live i{transition:none}
+.typing{display:inline-flex;gap:4px;padding:13px 14px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#9aa0a4;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.msgs .bubble:last-of-type{animation:msgin .3s ease-out}
+@keyframes msgin{from{transform:translateY(8px);opacity:0}}
+.scene{width:100%;max-width:290px;margin:0 auto;position:relative}
+.scene .mrow{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);font-size:13px;background:var(--paper)}
+.scene .mine{border:1.5px solid var(--acc);border-radius:10px;font-weight:600;position:relative;z-index:2}
+.scene .up{position:absolute;left:-26px;top:50%;margin-top:-8px;color:var(--acc);opacity:0}
+.entering .scene .mine{animation:flyin .8s .2s cubic-bezier(.2,.8,.2,1) both}
+.entering .scene .up{animation:rise2 1s .1s ease-out both}
+.entering .scene .after{animation:pushdown .45s .65s cubic-bezier(.2,.8,.2,1) both}
+@keyframes flyin{0%{transform:translateY(170px) scale(.92);opacity:0}55%{opacity:1}100%{transform:none}}
+@keyframes rise2{0%{transform:translateY(70px);opacity:0}40%{opacity:1}100%{transform:translateY(-14px);opacity:0}}
+@keyframes pushdown{from{transform:translateY(-46px)}}
+.entering .drawcheck.late circle{animation-delay:1.05s}.entering .drawcheck.late path{animation-delay:1.45s}
+.mover{display:inline-block;font-size:12.5px;font-weight:600;color:var(--acc);padding:4px 10px;border-radius:12px;background:#e6f2ed}
+.entering .mover{animation:move 1s .2s cubic-bezier(.4,0,.2,1) both}
+@keyframes move{0%{transform:translateY(-34px);opacity:0}30%{opacity:1}100%{transform:none}}
+.oldp{text-decoration:line-through;color:var(--sub)}
+.entering .newp{animation:pop .45s .45s both}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:none;opacity:1}}
+.slidein{animation:slidein .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes slidein{from{transform:translateX(36px);opacity:0}}
+.fbadge{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:8px;background:var(--ink);color:#fff;font-size:10.5px;font-weight:700;padding:0 4px}
+.sheet .tl{font-size:13.5px;line-height:1.65;color:var(--ink2);margin:0;padding-left:16px}
+.sheet .tl li{margin-bottom:6px}
+
+/* ===== 와이어프레임 보기: 피그마 로파이처럼 회색 상자와 글자만 ===== */
+.scr.wf{--ink:#1d1d1d;--ink2:#333;--sub:#7a7a7a;--line:#c9c9c9;--fill:#e4e4e4;--paper:#fff;--acc:#1d1d1d;--warn:#1d1d1d;--bad:#1d1d1d;font-family:system-ui,"Malgun Gothic",sans-serif}
+.scr.wf *{font-family:inherit!important;box-shadow:none!important;animation:none!important;transition:none!important}
+.scr.wf .hdr,.scr.wf .tabs{background:#e0e0e0;border:0}
+.scr.wf .hdr.big{background:#fff;border-bottom:1px solid #d0d0d0}
+.scr.wf .ic svg{display:none}
+.scr.wf .ic{border:1.3px solid #9a9a9a;border-radius:3px;background:#f2f2f2}
+.scr.wf .tabs .ic{width:14px!important;height:14px!important;border-radius:50%;background:#a8a8a8;border:0}
+.scr.wf .tabs button.on .ic{background:#444}
+.scr.wf [data-act="back"].iconbtn{width:auto;padding:0 8px;font-size:13px;font-weight:600}
+.scr.wf [data-act="back"].iconbtn .ic{display:none}
+.scr.wf [data-act="back"].iconbtn::before{content:"< 뒤로";white-space:nowrap}
+.scr.wf .btn{background:#111;color:#fff;border:0;border-radius:2px}
+.scr.wf .btn.s{background:#fff;color:#111;border:1.5px solid #111}
+.scr.wf .btn.t{background:transparent;color:#444;border:0;text-decoration:underline}
+.scr.wf .btn[disabled]{background:#bbb}
+.scr.wf .gauge,.scr.wf .split,.scr.wf .slider .rail{background:#e4e4e4;border-radius:0}
+.scr.wf .gauge i,.scr.wf .split i,.scr.wf .slider .rail b{background:#9a9a9a!important;border-radius:0}
+.scr.wf .chart,.scr.wf .art,.scr.wf .scene{position:relative;background:#e4e4e4;border:0;border-radius:2px;min-height:110px}
+.scr.wf .chart>*,.scr.wf .art>*,.scr.wf .scene>*{visibility:hidden}
+.scr.wf .chart::after,.scr.wf .art::after,.scr.wf .scene::after{content:"그래프";position:absolute;inset:0;display:grid;place-items:center;font-size:12.5px;font-weight:600;color:#7a7a7a;visibility:visible}
+.scr.wf .art::after,.scr.wf .scene::after{content:"이미지"}
+.scr.wf .chip{border-radius:2px;background:#e4e4e4;border-color:#e4e4e4;color:#333}
+.scr.wf .chip.on{background:#555;border-color:#555;color:#fff}
+.scr.wf .ck,.scr.wf .radio{border-color:#777}
+.scr.wf .ck.on{background:#555;border-color:#555}
+.scr.wf .radio.on{border-color:#333}
+.scr.wf .tog{background:#c4c4c4}.scr.wf .tog.on{background:#555}
+.scr.wf .block{background:#f1f1f1;border:1px solid #cfcfcf;border-radius:2px}
+.scr.wf .lockbg,.scr.wf.lockbg{background:#d6d6d6!important;color:#222}
+.scr.wf .noti{background:#fff;border:1.3px solid #999;border-radius:4px}
+.scr.wf .av{background:#d0d0d0;color:transparent}
+.scr.wf .stars button{color:#c4c4c4}.scr.wf .stars button.on{color:#555}
+.scr.wf .bubble{border-radius:4px;border:1px solid #bbb;background:#f4f4f4}
+.scr.wf .toast,.scr.wf .slider .knob{border-radius:2px}
+.scr.wf .toast{display:none}
+.scr.wf .ladder div::before{background:#d0d0d0}.scr.wf .ladder div.on::before{background:#555}
+.scr.wf .mover{background:#e4e4e4;color:#333}
+.scr.wf .sheet{border-radius:0}
+.scr.wf .ic[data-n="chev"]{border:0;background:none}
+.scr.wf .ic[data-n="chev"]::after{content:"›";font-size:20px;color:#888;line-height:1}
+.scr.wf [style*="e0a100"]{color:#777!important}
+
+/* 흐름도 보드 (캡처 전용) */
+.board{position:relative;font-family:var(--f-ui)}
+.bcard{position:absolute}
+.bcard .bl{font-size:16px;font-weight:700;color:#222;margin-bottom:10px;white-space:nowrap}
+.bcard .bl code{font-family:inherit;color:#666;margin-right:8px}
+.bcard .bf{width:390px;height:824px}
+.bcard .scr{border-radius:4px;outline:1.5px solid #8d8d8d}
+.btag{position:absolute;font-size:11.5px;font-weight:700;background:#1f2a4d;color:#fff;padding:2px 7px;border-radius:4px;white-space:nowrap;z-index:3}
+.bview{position:fixed;inset:0;overflow:hidden;background:#eef0ef;touch-action:none;cursor:grab;font-family:var(--f-ui)}
+.bview.drag{cursor:grabbing}
+.bview .board{transform-origin:0 0;position:absolute;left:0;top:0;background:#f5f5f5;box-shadow:0 0 0 1px #d8dcda}
+.bview .bcard{cursor:pointer}
+.bview .bcard:hover .scr{outline:3px solid #0f6b55}
+.bview.focus svg path,.bview.focus svg circle{opacity:.12}
+.bview.focus svg .on{opacity:1}
+.bview.focus .bcard{opacity:.35}
+.bview.focus .bcard.on{opacity:1}
+.btool{position:fixed;left:12px;right:12px;top:12px;z-index:20;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#fff;border:1px solid #d8dcda;border-radius:10px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.btool b{font-size:14px;margin-right:6px}
+.btool button{border:1px solid #d8dcda;background:#fff;border-radius:7px;padding:5px 10px;font-size:12.5px;cursor:pointer;color:#16191b}
+.btool button[aria-pressed="true"]{background:#0f6b55;border-color:#0f6b55;color:#fff}
+.btool .sep{width:1px;height:20px;background:#d8dcda;margin:0 2px}
+.btool .zv{font-size:12px;color:#646b6f;min-width:42px;text-align:center}
+.bmini{position:fixed;right:12px;bottom:12px;z-index:20;background:#fff;border:1px solid #d8dcda;border-radius:8px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.bmini i{position:absolute;background:#c9d3cf;border-radius:1px}
+.bmini .vp{position:absolute;border:2px solid #0f6b55;background:rgba(15,107,85,.08)}
+.bhint{position:fixed;left:12px;bottom:12px;z-index:20;font-size:11.5px;color:#646b6f;background:rgba(255,255,255,.9);border-radius:6px;padding:4px 8px}
+.glabel{position:absolute;font-size:26px;font-weight:800;color:#0f6b55;white-space:nowrap}
+.glabel span{display:block;font-size:14px;font-weight:600;color:#646b6f;margin-top:4px}
+</style>
+
+<div class="shell">
+  <aside class="panel" aria-label="화면 목록">
+    <div>
+      <h1>크레셀</h1>
+      <p class="lead">AI 구독의 남는 사용량을 팔고, 한도에 걸린 사람은 필요한 만큼만 사서 이어 쓰는 앱. 화면 61개 시연용 프로토타입. 초기화하면 가입 전 새 고객 상태로 처음부터 시연합니다.</p>
+    </div>
+    <div class="col" style="gap:6px">
+      <span class="lbl">보기</span>
+      <div class="seg2" role="group" aria-label="보기">
+        <button type="button" id="v-ui" aria-pressed="true">완성 화면</button>
+        <button type="button" id="v-wf" aria-pressed="false">와이어프레임</button>
+      </div>
+      <button type="button" class="navbtn" id="v-all" style="margin-top:4px">전체 흐름도 (61개 화면 한 화면에)</button>
+    </div>
+    <label class="col" style="gap:6px"><span class="lbl">화면 고르기</span>
+      <select class="mobsel" id="mobsel"></select>
+    </label>
+    <nav class="idx" id="idx"></nav>
+  </aside>
+  <main class="stage">
+    <div class="cap" id="cap"></div>
+    <div class="fit" id="fit"><div class="phone" id="phone"><div class="scr" id="scr"></div></div></div>
+    <div class="cap">
+      <button type="button" class="navbtn" id="prev">이전 화면</button>
+      <button type="button" class="navbtn" id="restart">초기화 (새 고객)</button>
+      <button type="button" class="navbtn" id="next">다음 화면</button>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+/* ---------- 아이콘 (Lucide 선 아이콘 원본 경로) ---------- */
+const P={
+bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+check:'<path d="M20 6 9 17l-5-5"/>',
+star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+arrow:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+up:'<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+cart:'<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+list:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+chev:'<path d="m9 18 6-6-6-6"/>',
+back:'<path d="m15 18-6-6 6-6"/>',
+sort:'<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>',
+sliders:'<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+retry:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/>',
+send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+repeat:'<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+down:'<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+trend:'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+trendup:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C9.5 3 12 8 12 8s2.5-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+card:'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+book:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+phone:'<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
+zap:'<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>'
+};
+const I=(n,s=20,st='')=>`<span class="ic" data-n="${n}" style="width:${s}px;height:${s}px;${st}"><svg viewBox="0 0 24 24" aria-hidden="true">${P[n]||''}</svg></span>`;
+const CHECK=(s=64,cls='')=>`<svg class="drawcheck ${cls}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/></svg>`;
+
+/* ---------- 가격: 정가 고정, 남은 기간에 따라 시스템이 할인 ----------
+   1크레딧 = Claude Pro 주간 사용량 1%. 정가는 월 29,000원 x 12 / 52 = 주 6,692원, 10크레딧 670원.
+   Max는 Pro 주간의 5배라 Max 1% = 5크레딧. 하한은 정가의 70%.
+   p는 판매 가격(정산 기준), b는 사는 사람이 내는 가격(결제 수수료 5% 포함, 10원 단위). d는 판매 가격 할인율. */
+const won=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+const STAGES=[{min:7200,p:670,b:700,d:0,n:'5일 이상'},{min:4320,p:600,b:630,d:10,n:'3~5일'},{min:1440,p:540,b:570,d:20,n:'1~3일'},{min:0,p:470,b:490,d:30,n:'1일 미만'}];
+const FULL10=700,FEE=.05;
+const minLeft=exp=>Math.max(0,exp-S.t/60);
+const stageOf=exp=>{const m=minLeft(exp);return STAGES.find(s=>m>=s.min);};
+const p10=exp=>stageOf(exp).b; /* 사는 사람 가격 */
+const s10=exp=>stageOf(exp).p; /* 판매 가격 */
+const priceOf=(cr,exp)=>cr/10*p10(exp);
+const sellOf=(cr,exp)=>cr/10*s10(exp);
+const BASE={Claude:'Pro',GPT:'Plus',Gemini:'AI Pro'};
+/* AI 회사 로고: Simple Icons(CC0)의 SVG 경로. 각 로고는 해당 회사의 상표 */
+const AIC={Claude:{bg:'#D97757',fg:'#fff',d:'m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z'},GPT:{bg:'#0d0d0d',fg:'#fff',d:'M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z'},Gemini:{bg:'#fff',grad:1,d:'M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81'}};
+let gid=0;
+const aiIc=(m,s=28)=>{const L=AIC[m]||AIC.Claude,id='gg'+(gid++),w=Math.round(s*.6);return `<span class="aic${L.grad?' lite':''}" role="img" aria-label="${m}" style="width:${s}px;height:${s}px;background:${L.bg}"><svg viewBox="0 0 24 24" width="${w}" height="${w}" aria-hidden="true">${L.grad?`<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4285F4"/><stop offset="1" stop-color="#9B72CB"/></linearGradient></defs>`:''}<path fill="${L.grad?`url(#${id})`:L.fg}" d="${L.d}"/></svg></span>`;};
+const planPct=(m,cr)=>m==='Claude'?`Pro 기준 ${cr}%, Max 기준 ${cr/5}%`:`${BASE[m]} 기준 ${cr}%`;
+const ladder=(exp,sell)=>{const cs=stageOf(exp);return `<div class="ladder">${STAGES.map(s=>`<div class="${s===cs?'on':''}"><b>${won(sell?s.p:s.b)}</b>${s.n}</div>`).join('')}</div>`;};
+
+/* ---------- 데이터 ---------- */
+const mk=(id,model,seller,cr,exp,rating,deals)=>({id,model,seller,cr,exp,rating,deals});
+const LIST=[
+ mk('c3','Claude','디자인하는곰',10,190,4.8,21), mk('c1','Claude','밤샘코더',20,365,4.9,38), mk('c9','Claude','리서치중',30,1500,4.7,12),
+ mk('c2','Claude','퇴근후작업',20,2950,5.0,54), mk('c5','Claude','코드리뷰어',30,3300,4.8,29), mk('c10','Claude','문서장인',10,3900,4.6,9),
+ mk('c6','Claude','야간편집자',20,4500,4.9,17), mk('c4','Claude','새벽감자',50,5200,4.8,33), mk('c12','Claude','데이터분석가',20,6100,4.7,8),
+ mk('c8','Claude','번역하는날',40,7500,4.9,40), mk('c7','Claude','주말러',80,8800,4.8,61), mk('c11','Claude','한가한목요일',60,9300,4.4,6),
+ mk('g1','GPT','점심산책',20,240,4.8,15), mk('g2','GPT','영상편집러',10,1700,4.6,7), mk('g3','GPT','기획자K',30,2600,4.9,26), mk('g4','GPT','출근전한시간',20,3600,4.7,11),
+ mk('g5','GPT','금요일오후',40,5000,4.8,19), mk('g6','GPT','조용한저녁',50,6800,4.4,4), mk('g7','GPT','마케터J',20,7600,4.9,22), mk('g8','GPT','느긋한주말',60,9000,4.7,9),
+ mk('m1','Gemini','사진정리중',20,330,4.7,10), mk('m2','Gemini','여행준비',30,1900,4.8,14), mk('m3','Gemini','엑셀장인',10,4400,4.4,5), mk('m4','Gemini','월요병',40,6000,4.9,18), mk('m5','Gemini','책읽는밤',20,8400,4.5,3)
+];
+const FRESH=mk('c13','Claude','방금퇴근',20,3100,4.8,14);
+/* 우선 노출을 켠 판매 예시 */
+['c5','g3','m2'].forEach(id=>{LIST.find(x=>x.id===id).boost=true;});
+const byId=id=>LIST.find(l=>l.id===id)||(id==='c13'?FRESH:null);
+const SELL_EXP=1800; /* 판매자 주간 초기화까지 1일 6시간 */
+
+const S={
+ t:0, wf:false, role:'buy', model:'Claude', bucket:'all', sort:'price', fRating:false, fDeals:false, q:'',
+ cart:new Map(), cartTouched:false, pay:'c0', agree:true,
+ autoCh:{on:false,cr:30,days:1,max:5000,used:0}, invited:2, fresh:false, buyM:'Claude', buyFree:false, pickFree:false, sellM:'GPT', boost:false, sellTab:'on', addAI:'Gemini',
+ cap:10000, charged:0, qNeed:30, qDays:2, stars:5, tags:new Set(['빠른 충전','설명과 일치']),
+ lastOrder:null, failed:false, freshShown:false, freshFlash:false,
+ history:[{date:'11월 12일',model:'Claude',cr:40,price:2280,base:2160,sellers:'리서치중',no:'CR-1112-4827',time:'23:48'},{date:'11월 5일',model:'Claude',cr:30,price:1890,base:1800,sellers:'코드리뷰어',no:'CR-1105-2210',time:'14:05'}],
+ sellPct:20, lastPost:null, auto:{on:true,before:'1d',keep:10},
+ mine:[{id:'s1',cr:10,exp:SELL_EXP,views:14}],
+ sold:[{date:'11월 18일',buyer:'퇴근후작업',cr:20,price:1080,state:'정산 예정'},{date:'11월 17일',buyer:'리서치중',cr:20,price:1340,state:'정산 완료'},{date:'11월 14일',buyer:'점심산책',cr:30,price:1620,state:'정산 완료'},{date:'11월 10일',buyer:'문서장인',cr:40,price:2680,state:'정산 완료'}],
+ withdrawn:0, withdraw:0, bank:{name:'',num:''},
+ terms:{all:false,t1:true,t2:true,t3:true,t4:false}, pickAI:'Claude', capPick:10000, capEdit:10000,
+ linked:{Claude:true,GPT:true,Gemini:false}, unlinkAsk:null, newLink:null,
+ notif:{limit:true,reset:true,sold:true,price:false,news:false},
+ cards:[{name:'간편결제',sub:'등록된 계좌',main:true},{name:'체크카드',sub:'신한 1234',main:false}], newCard:false,
+ chat:{topic:'home',log:[],chips:[],typing:false}
+};
+const settleOf=s=>Math.round(s.price*(s.rate||.6));
+/* 한 계정: 연결한 AI는 모두 유료 요금제. Claude Pro는 주간 한도에 걸려 사고, GPT Plus는 남아서 판다 */
+const ME='ABC123';
+/* 출금 수수료는 없음. 소액 이체가 반복되지 않게 최소 출금만 1,000원 */
+const MIN_WD=1000;
+const sellReady=()=>!!S.sellM&&!!S.linked[S.sellM];
+const sm=()=>S.sellM||'GPT';
+/* 사는 AI: 가입 때 고른(한도에 걸린) AI. 예시 계정은 Claude */
+const bm=()=>S.buyM||'Claude';
+const bp=()=>BASE[bm()];
+/* 무료 이용자는 한 단계 위 유료 요금제(bp) 기준으로 산다. 무료 계정은 팔 사용량이 없어 판매용으로 고를 수 없다 */
+const bpn=()=>S.buyFree?'무료':bp();
+const canSell=m=>!(S.buyFree&&m===bm());
+/* 판매 예측: AI마다 사용 패턴이 다르다. 사용 used, 남은 기간 예상 사용 more, 남을 양 left, 판매 가능은 10% 단위 내림 */
+const PRED={Claude:{bars:[20,16,22,12],fut:[2,2,2]},GPT:{bars:[18,12,22,12],fut:[3,3,2]},Gemini:{bars:[14,10,18,13],fut:[3,3,3]}};
+const pred=(m=sm())=>{const P=PRED[m],used=P.bars.reduce((a,b)=>a+b,0),more=P.fut.reduce((a,b)=>a+b,0),left=100-used-more;return {...P,used,more,left,can:Math.floor(left/10)*10,max:Math.floor((100-used)/10)*10};};
+const sellPlan=()=>`${sm()} ${BASE[sm()]}`;
+/* 우선 노출: 미리 내는 돈 없이, 팔렸을 때만 정산을 60%에서 55%로. AI 회사 30%는 그대로 */
+const sellRate=()=>S.boost?.55:.6;
+const payOpts=()=>S.cards.map((c,i)=>['c'+i,c.name,c.sub]).concat([['phone','휴대폰 결제','통신 요금에 합산']]);
+const payLabel=()=>(payOpts().find(x=>x[0]===S.pay)||payOpts()[0])[1];
+const myDeals=()=>S.history.length+S.sold.length;
+function freshState(){
+  Object.assign(S,{history:[],sold:[],mine:[],withdrawn:0,withdraw:0,lastWd:null,bank:{name:'',num:''},cards:[],pay:'phone',
+    linked:{Claude:false,GPT:false,Gemini:false},terms:{all:false,t1:false,t2:false,t3:false,t4:false},pickAI:'Claude',addAI:'GPT',buyM:'Claude',buyFree:false,pickFree:false,sellM:null,boost:false,sellTab:'on',
+    cartTouched:false,lastOrder:null,charged:0,failed:false,freshShown:false,autoCh:{on:false,cr:30,days:1,max:5000,used:0},
+    invited:0,fresh:true,sellPct:20,lastPost:null,q:'',bucket:'all',sort:'price',fRating:false,fDeals:false,model:'Claude',qNeed:30,qDays:2,agree:true,
+    notif:{limit:true,reset:true,sold:true,price:false,news:false},auto:{on:false,before:'1d',keep:10},unlinkAsk:null,cardAsk:null,stars:5,tags:new Set(),chat:{topic:'home',log:[],chips:[],typing:false}});
+  S.cart.clear();
+}
+const spent=()=>S.history.reduce((a,h)=>a+h.price,0);
+const avail=()=>S.sold.filter(s=>s.state==='정산 완료').reduce((a,s)=>a+settleOf(s),0)-S.withdrawn;
+const pending=()=>S.sold.filter(s=>s.state==='정산 예정').reduce((a,s)=>a+settleOf(s),0);
+S.withdraw=avail();
+
+/* 남은 시간 */
+const secLeft=min=>Math.max(0,Math.round(min*60-S.t));
+const fShort=sec=>{const d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);return d?`${d}일 ${h}시간`:`${h}시간 ${String(m).padStart(2,'0')}분`;};
+const fClock=sec=>{if(sec>=86400)return fShort(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return [h,m,s].map(v=>String(v).padStart(2,'0')).join(':');};
+const left=(min,fmt='short')=>`<span data-exp="${min}" data-fmt="${fmt}">${fmt==='clock'?fClock(secLeft(min)):fShort(secLeft(min))}</span>`;
+
+/* 장터 목록, 정렬, 필터 */
+const BUCKETS=[['all','전체'],['d1','1일 미만'],['d3','1~3일'],['d3p','3일 이상']];
+const inBucket=l=>{const m=minLeft(l.exp);return S.bucket==='all'||(S.bucket==='d1'&&m<1440)||(S.bucket==='d3'&&m>=1440&&m<4320)||(S.bucket==='d3p'&&m>=4320);};
+const pool=()=>S.freshShown?LIST.concat([FRESH]):LIST;
+const SORTS=[['price','싼 순'],['long','오래 쓸 수 있는 순'],['big','크레딧 많은 순'],['rating','평점 높은 순']];
+const sortFn=()=>({price:(x,y)=>p10(x.exp)-p10(y.exp)||(y.boost?1:0)-(x.boost?1:0)||x.exp-y.exp||x.cr-y.cr,long:(x,y)=>y.exp-x.exp,big:(x,y)=>y.cr-x.cr||p10(x.exp)-p10(y.exp),rating:(x,y)=>y.rating-x.rating||y.deals-x.deals}[S.sort]);
+const passSeller=l=>(!S.fRating||l.rating>=4.5)&&(!S.fDeals||l.deals>=10);
+const marketList=()=>pool().filter(l=>l.model===S.model&&inBucket(l)&&passSeller(l)).sort(sortFn());
+const searchList=q=>q?pool().filter(l=>l.seller.includes(q)||l.model.toLowerCase().includes(q.toLowerCase())).sort(sortFn()):[];
+const filterCount=()=>(S.bucket!=='all')+S.fRating+S.fDeals;
+
+/* 빠른 구매: 기한이 여유 기간 이상인 매물을 싼 순으로 10크레딧씩 채운다 */
+function quickFill(model,cr,days){
+  const c=pool().filter(l=>l.model===model&&minLeft(l.exp)>=days*1440).sort((a,b)=>p10(a.exp)-p10(b.exp)||(b.boost?1:0)-(a.boost?1:0)||a.exp-b.exp);
+  let need=cr;const picks=[];
+  for(const l of c){if(need<=0)break;const take=Math.min(l.cr,need);picks.push({id:l.id,cr:take});need-=take;}
+  return {picks,short:Math.max(0,need),sum:picks.reduce((s,x)=>s+priceOf(x.cr,byId(x.id).exp),0)};
+}
+const cartItems=()=>[...S.cart].map(([id,cr])=>{const l=byId(id);return l&&{l,cr,price:priceOf(cr,l.exp)};}).filter(Boolean);
+const cartCr=()=>cartItems().reduce((s,x)=>s+x.cr,0);
+const cartSum=()=>cartItems().reduce((s,x)=>s+x.price,0);
+const payTotal=()=>cartSum();
+function fillCart(){S.cart.clear();quickFill(bm(),S.qNeed,S.qDays).picks.forEach(x=>S.cart.set(x.id,x.cr));}
+function ensureCart(){if(!S.cart.size&&!S.cartTouched)fillCart();}
+const order=()=>S.lastOrder||(()=>{const q=quickFill(bm(),30,2);return {items:q.picks.map(x=>({l:byId(x.id),cr:x.cr,price:priceOf(x.cr,byId(x.id).exp)})),cr:30,sum:q.sum};})();
+
+/* ---------- 공통 조각 ---------- */
+const hdr=(title='',{back=true,right='',close=false}={})=>`<div class="hdr">${back?`<button class="iconbtn" data-act="back" aria-label="${close?'닫기':'뒤로'}">${I(close?'x':'back',22)}</button>`:'<span style="width:10px"></span>'}<h2>${title}</h2>${right}</div>`;
+const bigHdr=(title,right='')=>`<div class="hdr big"><h2>${title}</h2>${right}</div>`;
+const tabs=on=>`<nav class="tabs">${[['home','홈','home'],['market','장터','cart'],['sell-home','내놓기','upload'],['bought','내역','list'],['my','마이','user']].map(([id,n,ic])=>`<button class="${on===id?'on':''}" data-go="${id}" data-tab="1">${I(ic,22)}${n}</button>`).join('')}</nav>`;
+const CHEV=I('chev',18,'color:#b3b9bc');
+const disc=exp=>stageOf(exp).d;
+const sellerSum=a=>{a=Array.isArray(a)?a:String(a).split(', ');return a.length>1?`${a[0]} 외 ${a.length-1}명`:a[0]||'';};
+const meta=(...xs)=>`<div class="meta mt4">${xs.filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</div>`;
+const listingRow=(l,sel,hl='')=>{const name=hl&&l.seller.includes(hl)?l.seller.replace(hl,`<mark>${hl}</mark>`):l.seller,d=disc(l.exp);return `<div class="li ${S.freshFlash&&l.id==='c13'?'fresh':''}" data-lid="${l.id}">
+  <button class="ck ${sel?'on':''}" data-act="cart" data-id="${l.id}" aria-label="${l.seller} 담기">${sel?I('check',14,'stroke-width:2.6'):''}</button>
+  <button class="grow" data-go="listing" data-id="${l.id}" style="border:0;background:transparent;text-align:left;padding:0">
+    <div class="t">${l.cr}크레딧 <span class="nm">${name}</span>${l.id==='c13'?' <span class="tag a">방금</span>':''}${l.boost?' <span class="tag bst">우선 노출</span>':''}</div>
+    ${meta(hl?l.model:'',I('clock',12)+left(l.exp),I('star',12)+l.rating)}
+  </button>
+  <div style="text-align:right"><div class="price">${won(priceOf(l.cr,l.exp))}</div><div class="perh mt4">10%당 ${won(p10(l.exp))}${d?` <span class="off">-${d}%</span>`:' 정가'}</div></div>
+</div>`;};
+const navRow=(t,s,go,right='',extra='',icon='')=>`<button class="li" data-go="${go}" ${extra}>${icon?`<span class="ri">${I(icon,19)}</span>`:''}<span class="grow"><span class="t" style="font-size:15px">${t}</span>${s?`<div class="tiny mt4">${s}</div>`:''}</span>${right}${CHEV}</button>`;
+const slider=(key,min,max,step,reco,rl='추천')=>{const v=S[key],pc=x=>(x-min)/(max-min)*100;let ticks='';for(let x=min;x<=max;x+=step)ticks+=`<i class="tick" style="left:${pc(x)}%"></i>`;
+  return `<div class="slider" data-slider="${key}" data-min="${min}" data-max="${max}" data-step="${step}" role="slider" tabindex="0" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${v}">${ticks}<div class="rail"><b style="width:${pc(v)}%"></b></div>${reco!=null?`<span class="mark" style="left:${pc(reco)}%">${rl}</span>`:''}<span class="knob" style="left:${pc(v)}%"></span></div><div class="row tiny"><span>${min}%</span><span>${max}%</span></div>`;};
+const tog=(k,on,label)=>`<button class="tog ${on?'on':''}" data-act="tg" data-k="${k}" role="switch" aria-checked="${on}" aria-label="${label}"></button>`;
+const chart=(d,labels,max,unit,hi)=>`<div class="chart mt16">${d.map((v,i)=>{const [val,real]=Array.isArray(v)?v:[v,1];return `<div class="c"><em>${val}${unit}</em><div class="bt"><i class="${real?(hi==null||i===hi?'on':''):'p'}" style="height:${val/max*100}%;animation-delay:${i*.07}s"></i></div><span>${labels[i]}</span></div>`;}).join('')}</div>`;
+const sheet=(inner,close='back')=>`<div class="sheet-bg" data-act="${close}"><div class="sheet" data-stop="1"><div class="grab"></div>${inner}</div></div>`;
+
+/* ---------- 화면 정의 ---------- */
+const G={A:'A. 처음 들어오기',B:'B. 바깥 접점',C:'C. 홈',D:'D. 사기 (장터)',E:'E. 평가',F:'F. 팔기 (내놓기)',G:'G. 내역과 정산',H:'H. 마이페이지',X:'X. 고객센터'};
+const SC=[];
+const def=(id,code,name,role,render,opt={})=>SC.push(Object.assign({id,code,name,role,render},opt));
+
+/* A. 처음 들어오기 */
+/* 스플래시: 세로 로고와 가로 문장이 차례로 들어오는 타이포 */
+def('splash','A-01','스플래시',null,()=>`<div class="body splash">
+  <div class="sp-v" aria-hidden="true">${'CRESELL'.split('').map(c=>`<i>${c}</i>`).join('')}</div>
+  <h1 class="sp-h" aria-label="CRESELL, AI 사용량 거래소"><span class="w l1">AI 사용량</span><span class="w l2 big">거래소</span></h1>
+  <div class="sp-ai">${['Claude','GPT','Gemini'].map(m=>aiIc(m,34)).join('')}<span>공식 제휴</span></div>
+ </div><div class="foot sp-foot" style="background:var(--ink)"><button class="btn" data-act="startnew" style="background:#fff;color:var(--ink)">시작하기</button><button class="btn t" data-go="login" data-k="ex" style="color:#9aa3a0">이미 계정이 있습니다</button></div>`,{darkbg:'#111418'});
+/* 마이페이지 이용 가이드에서 열면(k=g) 가입 화면으로 넘어가지 않고 마이페이지로 돌아간다 */
+const intro=(n,title,sub,art,next)=>p=>{const g=p&&p.k==='g';return `${hdr(g?'이용 가이드':'',{right:g?`<button class="link" data-act="guideclose" style="color:var(--sub);padding:0 8px">닫기</button>`:`<button class="link" data-go="login" style="color:var(--sub);padding:0 8px">건너뛰기</button>`})}<div class="body" style="display:flex;flex-direction:column;padding-top:8px">
+  <div class="art" style="flex:1;display:flex;align-items:center;justify-content:center;min-height:240px">${art}</div>
+  <h3 class="title mt24">${title}</h3><p class="sub mt8" style="font-size:14px">${sub}</p>
+ </div><div class="foot"><div class="dots" style="justify-content:center;margin-bottom:10px">${[1,2,3].map(i=>`<i class="${i===n?'on':''}"></i>`).join('')}</div>${g&&next==='login'?'<button class="btn" data-act="guideclose">확인</button>':`<button class="btn" data-go="${next}"${g?' data-k="g"':''}>다음</button>`}</div>`;};
+const artGauge=(label,pct,txt,color)=>`<div class="col" style="width:250px;gap:10px"><div class="row"><span class="sub">${label}</span><b>${txt}</b></div><div class="gauge" style="height:10px;border-radius:5px"><i style="width:${pct}%;background:${color}"></i></div></div>`;
+def('intro1','A-02','소개 1: 남는 사용량 팔기',null,intro(1,'초기화 때 사라질 사용량을 판매합니다','남는 양은 10% 단위로 판매합니다. 가격은 크레셀이 정합니다.',`<div class="col" style="gap:22px">${artGauge('이번 주 잔여 예측',28,'28%','var(--ink)')}<div class="row" style="width:250px"><span class="sub">20% 판매 시</span><b class="acc" style="font-size:20px">+804원</b></div></div>`,'intro2'));
+def('intro2','A-03','소개 2: 필요한 만큼 사기',null,intro(2,'한도에 걸려도 작업은 이어집니다','상위 요금제 없이 필요한 양만 사서 내 계정에 바로 충전합니다.',`<div class="col" style="gap:22px">${artGauge('남은 사용량',3,'0%','var(--bad)')}<div class="row" style="width:250px"><span class="sub">10크레딧</span><b style="font-size:20px">490원부터</b></div></div>`,'intro3'));
+def('intro3','A-04','소개 3: 공식 제휴라 안전',null,intro(3,'계정을 빌려주지 않습니다','AI 회사 공식 연동으로만 거래합니다. 판매 금액의 30%는 AI 회사 몫입니다.',`<div class="col" style="width:250px;gap:14px">${['Claude','GPT','Gemini'].map(m=>`<div class="row"><b style="font-size:17px">${m}</b><span class="tag a">${I('shield',13)} 공식 연동</span></div>`).join('')}</div>`,'login'));
+def('login','A-05','간편 로그인',null,p=>`${hdr('')}<div class="body" style="padding-top:20px">
+  <h3 class="title">휴대폰 번호로 시작</h3>
+  <label class="field mt32"><input id="in-phone" value="010-1234-5678" aria-label="휴대폰 번호"></label>
+  <label class="field mt12"><input id="in-code" value="123456" aria-label="인증번호"><span class="tiny">02:41</span></label>
+  <p class="note mt12">문자로 받은 인증번호 6자리 입력</p>
+ </div><div class="foot">${p&&p.k==='ex'?'<button class="btn" data-go="home" data-tab="1">로그인</button>':'<button class="btn" data-go="terms">계속</button>'}<div class="row" style="justify-content:center;gap:18px">${['Apple','Google'].map(x=>`<button class="btn t" ${p&&p.k==='ex'?'data-go="home" data-tab="1"':'data-go="terms"'} style="width:auto">${x}로 계속</button>`).join('')}</div></div>`);
+const TERMS={
+ t1:['크레셀 이용약관',['크레셀은 AI 회사와 제휴해 남는 사용량을 크레딧으로 거래하는 서비스입니다.','가격은 남은 기간에 따라 크레셀이 정합니다. 판매 금액은 판매자 60%, AI 회사 30%, 크레셀 10%로 나눕니다.','우선 노출을 켠 판매는 판매자 55%, 크레셀 15%로 나눕니다. AI 회사 몫은 같습니다.','충전에 실패하면 결제는 자동으로 취소됩니다. 기한이 지난 크레딧은 소멸하며 환불되지 않습니다.']],
+ t2:['개인정보 수집과 이용',['수집 항목: 휴대폰 번호, 닉네임, 결제 수단 등록 정보, 정산 계좌','이용 목적: 본인 확인, 결제와 정산, 거래 문제 처리','탈퇴 시 법정 보관 대상 거래 기록을 제외하고 즉시 삭제합니다.']],
+ t3:['AI 계정 연동 정보 이용',['받는 정보: 남은 사용량, 초기화 시각, 요금제 종류','대화 내용과 AI 회사 결제 정보는 받지 않습니다.','연결은 마이페이지 또는 AI 회사 설정에서 언제든 해제할 수 있습니다.']],
+ t4:['혜택과 시세 알림 (선택)',['관심 모델 가격 인하, 초대 보상 발생 시 알림을 보냅니다.','동의하지 않아도 이용에 제한이 없습니다.','알림 설정에서 언제든 끌 수 있습니다.']]
+};
+def('terms','A-06','약관 동의',null,()=>{const t=S.terms,ok=t.t1&&t.t2&&t.t3,r=k=>`<div class="li" style="padding:10px 0;border:0"><button class="ck ${t[k]?'on':''}" data-act="term" data-k="${k}" aria-label="${TERMS[k][0]} 동의">${t[k]?I('check',14,'stroke-width:2.6'):''}</button><button class="grow" data-act="term" data-k="${k}" style="border:0;background:transparent;text-align:left;padding:0;font-size:14.5px">${TERMS[k][0].replace(' (선택)','')} <span class="tiny">${k==='t4'?'선택':'필수'}</span></button><button class="iconbtn" data-go="term-sheet" data-k="${k}" aria-label="${TERMS[k][0]} 요약 보기" style="width:34px;height:34px">${I('chev',16,'color:#9aa0a4')}</button></div>`;return `${hdr('')}<div class="body" style="padding-top:20px">
+  <h3 class="title">약관 동의</h3>
+  <button class="li mt24" data-act="term" data-k="all"><span class="ck ${t.all?'on':''}">${t.all?I('check',14,'stroke-width:2.6'):''}</span><span class="grow t">전체 동의</span></button>
+  <div class="list mt8">${r('t1')}${r('t2')}${r('t3')}${r('t4')}</div>
+ </div><div class="foot"><button class="btn" data-go="pick-ai" ${ok?'':'disabled'}>동의하고 계속</button></div>`;});
+/* AI 고르기: 가입 때(기본)와, 나중에 추가 연결할 때(add) 같은 화면을 쓴다. 판매용(k=sell)은 구독 중인 AI만 */
+const AIS=[['Claude','Anthropic'],['GPT','OpenAI'],['Gemini','Google']];
+def('pick-ai','A-07','AI 계정 고르기',null,p=>{const add=!!(p&&p.add),sell=p&&p.k==='sell',list=add?AIS.filter(([m])=>sell?canSell(m):!S.linked[m]):AIS;
+  if(add&&!list.some(([m])=>m===S.addAI))S.addAI=(list.find(([m])=>!S.linked[m])||list[0]||[''])[0];const pick=add?S.addAI:S.pickAI,done=add&&S.linked[pick];
+  return `${hdr('')}<div class="body" style="padding-top:20px">
+  <h3 class="title">${sell?'판매할 AI 선택':add?'연결할 AI 선택':'사용 중인 AI 선택'}</h3><p class="sub mt8">${sell?'유료 구독 중인 AI만 판매할 수 있습니다.':add?'공식 연동으로 연결합니다.':'하나 먼저 연결하고, 나머지는 나중에 추가할 수 있습니다.'}</p>
+  <div class="list mt24">${list.map(([m,s])=>`<button class="li" data-act="pickai" data-m="${m}" data-add="${add?1:''}">${aiIc(m,36)}<span class="grow"><span class="t">${m}</span>${meta(s,I('shield',12)+'공식 제휴')}</span>${add&&S.linked[m]?'<span class="tag a">연결됨</span>':''}<span class="radio ${pick===m?'on':''}"></span></button>`).join('')}</div>
+  ${add?'':`<span class="tiny mt24" style="display:block">${S.pickAI} 요금제</span><div class="chips mt8">${[[false,`유료 (${BASE[S.pickAI]})`],[true,'무료']].map(([f,n])=>`<button class="chip ${S.pickFree===f?'on':''}" data-act="pickfree" data-k="${f?1:''}">${n}</button>`).join('')}</div>${S.pickFree?`<p class="note mt8">무료 이용자는 ${BASE[S.pickAI]} 기준으로 구매합니다. 판매는 유료 구독 계정만 가능합니다.</p>`:''}`}
+ </div><div class="foot"><button class="btn" ${done?`data-act="sellpick" data-m="${pick}"`:`data-go="oauth" data-m="${pick}"${add?' data-add="1"':''}${sell?' data-k="sell"':''}`}>${done?`${pick}로 판매`:`${pick} 연결`}</button></div>`;});
+def('oauth','A-08','공식 연동 인증',null,p=>{const m=p.m||S.pickAI,sell=p.k==='sell',perms=[['사용량과 초기화 시각 조회','잔여량 표시와 예측'],['크레딧 충전','구매한 크레딧을 이 계정에 충전'],['크레딧 판매','지정한 양만 장터에 등록']].filter((x,i)=>sell?i!==1:true);return `${hdr(`<span class="tiny" style="font-weight:500">${m} 로그인, 외부 화면</span>`,{close:true})}<div class="body" style="padding-top:12px">
+  <h3 class="title s">크레셀 접근 권한 요청</h3>${meta(I('user',12)+'abc123@gmail.com',m)}
+  <div class="list mt24">${perms.map(([t,s])=>`<div class="li"><span class="grow"><span class="t">${t}</span><div class="tiny mt4">${s}</div></span>${I('check',18,'color:var(--acc)')}</div>`).join('')}</div>
+  <p class="note mt16">대화 내용과 결제 정보에는 접근하지 않습니다. 연결은 언제든 해제할 수 있습니다.</p>
+ </div><div class="foot"><button class="btn" data-act="oauthok">허용</button><button class="btn t" data-act="back">취소</button></div>`;});
+def('linked','A-09','연동 완료',null,()=>`<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <div class="center">${CHECK(64)}<h3 class="title mt16">${S.pickAI} 연결 완료</h3></div>
+  <div class="block mt32"><div class="row"><b>${S.pickAI} ${S.pickFree?'무료':BASE[S.pickAI]}</b><span class="meta">${I('clock',12)}초기화 5시간</span></div><div class="gauge mt12"><i style="width:92%"></i></div><div class="tiny mt8">주간 사용량 8% 남음</div></div>
+ </div><div class="foot"><button class="btn" data-go="notif">다음</button></div>`);
+def('notif','A-10','알림 허용',null,()=>`<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <h3 class="title">알림은 세 가지만 보냅니다</h3>
+  <div class="list mt24">${[['zap','한도 임박','잔여 10%'],['clock','초기화 전 잔여','판매 여부 확인'],['wallet','판매 완료','정산 금액 포함']].map(([ic,t,s])=>`<div class="li"><span class="ri">${I(ic,19)}</span><span class="grow"><span class="t">${t}</span><div class="tiny mt4">${s}</div></span></div>`).join('')}</div>
+ </div><div class="foot"><button class="btn" data-go="home">알림 허용</button><button class="btn t" data-go="home">나중에</button></div>`);
+def('term-sheet','A-11','약관 요약',null,p=>{const k=p.k||'t1',[ttl,lines]=TERMS[k];return SC.find(s=>s.id==='terms').render()+sheet(`<h3 class="sec" style="font-size:18px">${ttl}</h3><ul class="tl">${lines.map(x=>`<li>${x}</li>`).join('')}</ul><button class="btn" data-act="termagree" data-k="${k}">${S.terms[k]?'확인':'동의'}</button>`);},{sheet:true});
+
+/* B. 바깥 접점 */
+def('ext-push','B-01','잠금 화면 푸시 알림','buy',()=>{const a=S.autoCh,q=a.on?quickFill(bm(),a.cr,a.days):null,s0=S.sold[0];return `<div class="body lockbg" style="display:flex;flex-direction:column;gap:10px;padding-top:20px">
+  <div class="center" style="margin-bottom:28px"><span style="font-size:15px;opacity:.8">11월 20일 금요일</span><span style="font-size:80px;font-weight:300;letter-spacing:-3px;line-height:1.1">23:48</span></div>
+  ${a.on?`<button class="noti" data-act="autorun"><span class="grow"><span class="row"><b>크레셀</b><span class="tiny">지금</span></span><span style="font-size:13.5px;line-height:1.5;display:block;margin-top:2px">${bm()} 잔여 5%. 자동 충전 ${a.cr}크레딧, ${won(q.sum)}.</span></span></button>`
+  :`<button class="noti" data-go="quick"><span class="grow"><span class="row"><b>크레셀</b><span class="tiny">지금</span></span><span style="font-size:13.5px;line-height:1.5;display:block;margin-top:2px">${bm()} 잔여 5%. 10크레딧 ${won(lowest(bm()))}부터 바로 충전할 수 있습니다.</span></span></button>`}
+  ${s0?`<button class="noti" data-go="sold"><span class="grow"><span class="row"><b>크레셀</b><span class="tiny">2시간 전</span></span><span style="font-size:13.5px;line-height:1.5;display:block;margin-top:2px">${s0.cr}크레딧 판매 완료. 정산 예정 ${won(settleOf(s0))}.</span></span></button>`:''}
+ </div>`;},{dark:true});
+def('invite','B-02','친구 초대','buy',()=>`${hdr('')}<div class="body" style="padding-top:20px">
+  <h3 class="title">친구가 첫 거래를 하면<br>둘 다 10크레딧</h3><p class="sub mt8">가입 후 7일 이내 첫 거래 기준</p>
+  <div class="block mt32 row"><div class="col"><span class="tiny">초대 코드</span><span class="code mt4">CRS-7Q2K</span></div><button class="btn sm s" data-act="copy" style="background:#fff">${I('copy',15)}복사</button></div>
+  <div class="row mt24"><span class="sub">초대한 친구</span><b>${S.invited?`${S.invited}명, ${S.invited*10}크레딧`:'없음'}</b></div>
+ </div><div class="foot"><button class="btn" data-act="share">${I('share',18)}초대 링크 보내기</button></div>`);
+
+/* C. 홈: 글은 줄이고 상태는 숫자와 아이콘으로 */
+const lowest=m=>Math.min(...pool().filter(l=>l.model===m).map(l=>p10(l.exp)));
+def('home','C-01','홈',null,()=>{const c=S.charged,a=S.autoCh;return `${bigHdr('<span class="wm" aria-label="크레셀">CRESELL</span>',`<button class="iconbtn" data-go="inbox" aria-label="알림">${I('bell',22)}</button>`)}<div class="body">
+  <div class="hcard mt4">
+   <div class="row"><span class="tag">${aiIc(bm(),16)} ${bm()} ${bpn()}</span><span class="meta">${I('clock',12)}초기화 5시간</span></div>
+   <div class="row mt8" style="justify-content:flex-start;align-items:baseline;gap:8px"><span class="huge">${c?`<span data-up="${c}" data-unit="cr">+${c}크레딧</span>`:'8%'}</span><span class="sub" style="font-size:15px">${c?'충전됨':'남음'}</span></div>
+   <div class="gauge ${c?'a':''} mt12"><i style="width:${c?Math.min(100,c):92}%"></i></div>
+   <button class="row plain mt12" data-go="ai-reco"><span class="sub">${c?`${bp()} 기준 ${c}% 추가 사용 가능`:'추천 30크레딧'}</span>${I('chev',16,'color:var(--sub)')}</button>
+  </div>
+  <div class="row mt12" style="gap:8px">
+   <button class="tile" data-go="auto-charge"><span class="ri">${I('zap',18)}</span><span class="col"><b>자동 충전</b><span class="tiny ${a.on?'acc':''}">${a.on?`${a.cr}크레딧씩`:'꺼짐'}</span></span></button>
+   ${sellReady()?`<button class="tile" data-go="sell-home">${aiIc(S.sellM,36)}<span class="col"><b>${S.sellM} ${pred().can}%</b><span class="tiny">판매 가능</span></span></button>`
+   :`<button class="tile" data-go="pick-ai" data-add="1" data-k="sell"><span class="ri">${I('link',18)}</span><span class="col"><b>AI 연결</b><span class="tiny">남는 양 판매</span></span></button>`}
+  </div>
+  ${avail()>=MIN_WD?`<button class="li mt8 wdrow" data-go="${S.bank.num?'withdraw':'bank'}" style="border:1px solid var(--line);border-radius:14px;padding:12px 14px"><span class="ri">${I('wallet',18)}</span><span class="grow"><span class="t" style="font-size:14.5px">출금 가능 ${won(avail())}</span><div class="tiny mt4">판매 정산금, 수수료 없음</div></span><b class="acc" style="font-size:14px">출금</b>${CHEV}</button>`:''}
+  <div class="row mt32"><h3 class="sec">최저가</h3><span class="tiny">10크레딧 기준</span></div>
+  <div class="aigrid mt8">${['Claude','GPT','Gemini'].map(m=>`<button class="aitile" data-act="pickmodel" data-m="${m}">${aiIc(m,38)}<b>${won(lowest(m))}</b><span class="meta" style="margin:0">${I('list',12)}${pool().filter(l=>l.model===m).length}건</span></button>`).join('')}</div>
+ </div><div class="foot"><button class="btn" data-go="quick">${I('zap',18)}빠른 구매</button></div>${tabs('home')}`;},{tab:true});
+def('inbox','C-02','알림함',null,()=>`${hdr('알림')}<div class="body">
+  <div class="list">${[['zap','한도 5% 남음','10크레딧 490원부터 충전 가능','방금','quick',1],['check','충전 완료','Claude 계정에 40크레딧','11월 12일','bought',0],['trend','가격 자동 인하','판매 중인 10크레딧, 470원 적용','11월 11일','dropped',0],['gift','초대 보상','친구 첫 거래, 10크레딧 지급','11월 8일','invite',0]].slice(0,S.fresh?1:4).map(([ic,t,s,d,go,n])=>`<button class="li" data-go="${go}"><span class="ri">${I(ic,19)}</span><span class="grow"><span class="row"><span class="t" style="font-size:14.5px">${t}</span><span class="tiny">${d}</span></span><div class="tiny mt4">${s}</div></span>${n?'<span class="live"></span>':''}</button>`).join('')}</div>
+ </div>`);
+def('ai-reco','C-03','추천 양 계산 근거','buy',()=>`${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">추천</span><div class="huge mt4"><span data-up="30" data-unit="%">30%</span></div><p class="sub mt8">${bp()} 기준 30크레딧. 바쁜 날 하루 평균 15%, 2일 기준입니다.</p>
+  <h3 class="sec mt32">최근 7일 사용량</h3><span class="tiny mt4" style="display:block">${bp()} 기준 %, 연동한 사용 기록</span>
+  ${chart([6,2,9,4,15,3,12],['토','일','월','화','수','목','오늘'],18,'%',6)}
+  <div class="kv mt24"><div class="row"><span>바쁜 날 하루 평균</span><b>15%</b></div><div class="row"><span>오늘 사용</span><b>12%</b></div><div class="row"><span>주간 잔여</span><b>8%</b></div></div>
+ </div><div class="foot"><button class="btn" data-act="reco">30크레딧 빠른 구매</button></div>`);
+
+/* D. 사기 */
+def('market','D-01','장터 목록','buy',()=>{const a=marketList(),fc=filterCount();return `${bigHdr('장터',`<button class="iconbtn" data-go="quick" aria-label="빠른 구매">${I('zap',21)}</button><button class="iconbtn" data-go="search" aria-label="검색">${I('search',22)}</button>`)}<div class="body" style="padding-top:0">
+  <div class="tabline">${['Claude','GPT','Gemini'].map(m=>`<button class="${S.model===m?'on':''}" data-act="model" data-m="${m}">${aiIc(m,18)}${m}</button>`).join('')}</div>
+  <div class="chips mt12">${BUCKETS.map(([k,n])=>`<button class="chip ${S.bucket===k?'on':''}" data-act="bucket" data-k="${k}">${n}</button>`).join('')}</div>
+  <div class="row mt16"><span class="live">${a.length}건</span><span class="row" style="gap:14px"><button class="mini" data-go="filter">${I('sliders',14)}필터${fc?` <span class="fbadge">${fc}</span>`:''}</button><button class="mini" data-go="sort">${I('sort',14)}${SORTS.find(s=>s[0]===S.sort)[1]}</button></span></div>
+  <div class="list mt4">${a.map(l=>listingRow(l,S.cart.has(l.id))).join('')||`<p class="sub mt16">조건에 맞는 크레딧 없음</p><button class="btn s mt12" data-act="resetf">필터 초기화</button>`}</div>
+ </div>${S.cart.size?`<div class="foot line ${S._popFoot?'pop':''}"><div class="row"><span class="sub">${S.cart.size}건, ${cartCr()}크레딧</span><b style="font-size:20px" data-count="${cartSum()}">${won(cartSum())}</b></div><button class="btn mt4" data-go="cart">담은 크레딧</button></div>`:''}${tabs('market')}`;},{tab:true});
+const overMarket=inner=>()=>SC.find(s=>s.id==='market').render()+sheet(inner());
+def('filter','D-02','필터','buy',overMarket(()=>`<div class="row"><h3 class="sec" style="font-size:18px">필터</h3><button class="link" data-act="resetf" style="color:var(--sub)">초기화</button></div>
+  <div class="col" style="gap:8px"><span class="tiny">AI 모델</span><div class="chips">${['Claude','GPT','Gemini'].map(m=>`<button class="chip ${S.model===m?'on':''}" data-act="model" data-m="${m}">${aiIc(m,16)}${m}</button>`).join('')}</div></div>
+  <div class="col" style="gap:8px"><span class="tiny">남은 기간 (짧을수록 저렴)</span><div class="chips">${BUCKETS.map(([k,n])=>`<button class="chip ${S.bucket===k?'on':''}" data-act="bucket" data-k="${k}">${n}</button>`).join('')}</div></div>
+  <div class="col" style="gap:8px"><span class="tiny">판매자</span><div class="chips"><button class="chip ${S.fRating?'on':''}" data-act="fseller" data-k="fRating">평점 4.5 이상</button><button class="chip ${S.fDeals?'on':''}" data-act="fseller" data-k="fDeals">거래 10건 이상</button></div></div>
+  <button class="btn" data-act="back"><span data-count="${marketList().length}" data-unit="건">${marketList().length}건</span> 보기</button>`),{sheet:true});
+def('search','D-03','검색','buy',()=>`<div class="hdr" style="padding-right:16px"><button class="iconbtn" data-act="back" aria-label="뒤로">${I('back',22)}</button><label class="search">${I('search',16,'color:var(--sub)')}<input id="in-q" value="${S.q}" placeholder="판매자 또는 모델" aria-label="검색어" autocomplete="off"><button class="iconbtn" data-act="qclear" aria-label="지우기" style="width:24px;height:24px;${S.q?'':'visibility:hidden'}">${I('x',14)}</button></label></div>
+ <div class="body" id="sres">${searchBody()}</div>`);
+function searchBody(){const q=S.q;if(!q)return `<span class="tiny">최근 검색</span><div class="chips mt8">${['밤샘코더','퇴근후작업','GPT'].map(x=>`<button class="chip" data-act="q" data-q="${x}">${x}</button>`).join('')}</div>
+  <span class="tiny mt32" style="display:block">자주 산 판매자</span><div class="list mt4">${['퇴근후작업','밤샘코더','번역하는날'].map(n=>{const l=LIST.find(x=>x.seller===n);return `<button class="li" data-go="seller" data-id="${l.id}"><span class="grow"><span class="t">${n}</span>${meta(I('star',12)+l.rating,`거래 ${l.deals}건`)}</span>${CHEV}</button>`;}).join('')}</div>`;
+  const r=searchList(q);return r.length?`<span class="tiny">"${q}" ${r.length}건</span><div class="list mt4">${r.map(l=>listingRow(l,S.cart.has(l.id),q)).join('')}</div>`:`<p class="sub mt16">"${q}" 결과 없음</p><p class="note mt8">닉네임 일부로도 검색됩니다. 예: 밤샘, 퇴근</p>`;}
+def('sort','D-04','정렬','buy',overMarket(()=>`<h3 class="sec" style="font-size:18px">정렬</h3><div class="list">${SORTS.map(([k,n])=>`<button class="li" data-act="sort" data-k="${k}"><span class="grow t" style="font-weight:${S.sort===k?700:500}">${n}</span>${S.sort===k?I('check',20,'color:var(--ink)'):''}</button>`).join('')}</div><p class="note">가격은 남은 기간으로 정해지므로 싼 순과 기한 짧은 순은 거의 같습니다.</p>`),{sheet:true});
+def('listing','D-05','판매 상세','buy',p=>{const l=byId(p.id||'c2');const sel=S.cart.has(l.id),d=disc(l.exp);return `${hdr('')}<div class="body">
+  <span class="sub">${l.model} 크레딧</span>
+  <div class="huge mt4">${l.cr}크레딧</div><div class="tiny mt4">${planPct(l.model,l.cr)}</div>
+  <div class="row mt16"><span class="sub">10크레딧 ${won(p10(l.exp))}${d?` <span class="off">-${d}%</span>`:''}</span><b class="big">${won(priceOf(l.cr,l.exp))}</b></div>
+  <h3 class="sec mt24" style="font-size:13px;color:var(--sub);font-weight:600">남은 기간별 가격</h3><div class="mt8">${ladder(l.exp)}</div>
+  <div class="block mt24"><span class="tiny">사용 기한</span><div class="clock mt4">${left(l.exp,'clock')}</div><span class="tiny mt4" style="display:block">기한 경과 시 소멸</span></div>
+  <div class="kv mt24"><div class="row"><span>${I('shield',13)} 검수</span><b>잔여량 확인 완료</b></div><div class="row"><span>${I('zap',13)} 충전</span><b>공식 연동, 즉시</b></div></div>
+  <button class="li mt16" data-go="seller" data-id="${l.id}" style="border-top:1px solid var(--line)"><span class="grow"><span class="t">${l.seller}</span>${meta(I('star',12)+l.rating,`거래 ${l.deals}건`)}</span>${CHEV}</button>
+ </div><div class="foot" style="flex-direction:row;gap:8px"><button class="btn s" data-act="cart" data-id="${l.id}">${sel?'담기 취소':'담기'}</button><button class="btn" data-act="buynow" data-id="${l.id}">바로 구매</button></div>`;});
+def('seller','D-06','판매자 프로필과 평점','buy',p=>{const l=byId(p.id||'c2');const others=pool().filter(x=>x.model===l.model&&x.id!==l.id).slice(0,3);return `${hdr('')}<div class="body">
+  <b style="font-size:22px">${l.seller}</b>${meta(I('shield',12)+'충전 실패 0건')}
+  <div class="row mt24" style="padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">${[['평점',l.rating.toFixed(1)],['거래',l.deals+'건'],['평균 충전','1분']].map(([k,v])=>`<div class="col center" style="flex:1"><b style="font-size:18px">${v}</b><span class="tiny mt4">${k}</span></div>`).join('')}</div>
+  <h3 class="sec mt24">받은 평가</h3><div class="list mt4">${[['5','빠른 충전, 설명과 일치','11월 18일'],['4','넉넉한 기한','11월 15일'],['5','빠른 충전','11월 9일']].map(([s,t,d])=>`<div class="li"><span class="grow"><span style="color:#e0a100;letter-spacing:1px">${'★'.repeat(+s)}<span style="color:#d3d8d5">${'★'.repeat(5-s)}</span></span><div class="sub mt4">${t}</div></span><span class="tiny">${d}</span></div>`).join('')}</div>
+  <h3 class="sec mt24">같은 모델 판매 중</h3><div class="list mt4">${others.map(o=>listingRow(o,S.cart.has(o.id))).join('')}</div>
+ </div>`;});
+def('quick','D-07','빠른 구매','buy',()=>{const q=quickFill(bm(),S.qNeed,S.qDays),full=S.qNeed/10*FULL10;return `${hdr('빠른 구매')}<div class="body" style="padding-top:8px">
+  <span class="tag">${aiIc(bm(),16)} ${S.buyFree?`${bm()} 무료, ${bp()}`:`${bm()} ${bp()}`} 기준 구매</span>
+  <h3 class="title s mt16">필요한 양</h3>
+  <div class="row mt8" style="align-items:baseline"><span class="huge"><span data-count="${S.qNeed}" data-unit="%">${S.qNeed}%</span></span><span class="sub">${S.qNeed}크레딧</span></div>
+  ${slider('qNeed',10,100,10,30)}
+  <h3 class="title s mt32">사용 기간</h3>
+  <div class="chips mt12">${[1,2,3,5].map(d=>`<button class="chip ${S.qDays===d?'on':''}" data-act="qdays" data-v="${d}">${d}일</button>`).join('')}</div>
+  <p class="note mt8">기한이 더 짧은 크레딧은 제외하고 싼 순으로 채웁니다. 추천 30%는 시작값이며 직접 바꿀 수 있습니다.</p>
+  <div class="kv mt24" style="padding-top:14px;border-top:1px solid var(--line)">
+   <div class="row"><span>${I('users',13)} 판매자</span><b>${q.picks.length}명</b></div>
+   <div class="row"><span>${I('list',13)} 10%당 평균</span><b>${won(q.picks.length?Math.round(q.sum/((S.qNeed-q.short)/10)):0)} <span class="tiny" style="font-weight:400">정가 ${won(FULL10)}</span></b></div>
+   <div class="row"><span>${I('trend',13)} 정가 대비</span><b class="acc">-<span data-count="${full-q.sum}">${won(full-q.sum)}</span></b></div>
+  </div>
+  ${q.short?`<p class="mt16" style="color:var(--warn);font-size:13.5px;font-weight:600">조건에 맞는 크레딧 ${S.qNeed-q.short}크레딧. 사용 기간을 줄이면 더 찾을 수 있습니다.</p>`:`<button class="link mt16" data-act="quickcart">담길 크레딧 보기 ›</button>`}
+ </div><div class="foot line"><div class="row"><span class="sub">결제 금액</span><b style="font-size:22px" data-count="${q.sum}">${won(q.sum)}</b></div><button class="btn mt4" data-act="quickpay" ${q.short?'disabled':''}>${S.qNeed}크레딧 결제</button></div>`;});
+def('cart','D-08','담은 크레딧','buy',()=>{ensureCart();const it=cartItems();if(!it.length)return `${hdr('담은 크레딧')}<div class="body" style="display:flex;flex-direction:column;justify-content:center"><div class="center"><h3 class="title s">담은 크레딧 없음</h3><p class="sub mt8">장터에서 고르거나 빠른 구매로 한 번에 담을 수 있습니다.</p></div></div><div class="foot"><button class="btn" data-go="quick">빠른 구매</button><button class="btn s" data-go="market">장터</button></div>`;
+  const soon=Math.min(...it.map(x=>x.l.exp));return `${hdr('담은 크레딧')}<div class="body">
+  <div class="list">${it.map(x=>`<div class="li" data-lid="${x.l.id}"><span class="grow"><span class="t">${x.l.seller}</span>${meta(`${x.l.model} ${x.cr}크레딧${x.cr<x.l.cr?` / ${x.l.cr}`:''}`,I('clock',12)+left(x.l.exp))}</span><b>${won(x.price)}</b><button class="iconbtn" data-act="cartx" data-id="${x.l.id}" aria-label="빼기" style="width:32px;height:32px;color:var(--sub)">${I('x',16)}</button></div>`).join('')}</div>
+  <div class="kv mt24"><div class="row"><span>합계</span><b>${cartCr()}크레딧 (${bp()} ${cartCr()}%)</b></div><div class="row"><span>먼저 끝나는 기한</span><b>${fShort(secLeft(soon))} 뒤</b></div></div>
+  <p class="note mt16">기한이 짧은 크레딧부터 사용됩니다.</p>
+ </div><div class="foot line"><div class="row"><span class="sub">결제 금액</span><b style="font-size:20px" data-count="${cartSum()}">${won(cartSum())}</b></div><button class="btn mt4" data-go="pay-method">결제 수단 선택</button></div>`;});
+const payList=()=>`<div class="list">${payOpts().map(([k,n,s])=>`<button class="li" data-act="pay" data-k="${k}"><span class="ri">${I(k==='phone'?'phone':'card',18)}</span><span class="grow"><span class="t">${n}</span><div class="tiny mt4">${s}</div></span><span class="radio ${S.pay===k?'on':''}"></span></button>`).join('')}</div><button class="link mt12" data-go="card-add">${S.cards.length?'카드 추가':'카드 등록'} ›</button>`;
+def('pay-method','D-09','결제 수단','buy',()=>{if(!S.cart.size)fillCart();return `${hdr('결제 수단')}<div class="body">
+  ${payList()}
+  <p class="note mt16">결제 정보는 결제대행사가 처리하며 크레셀은 보관하지 않습니다.</p>
+ </div><div class="foot"><button class="btn" data-go="pay-confirm">다음</button></div>`;});
+def('pay-confirm','D-10','결제 확인','buy',()=>{if(!S.cart.size)fillCart();return `${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">${bm()} 계정에 ${cartCr()}크레딧 충전</span><div class="huge mt4" data-count="${cartSum()}">${won(cartSum())}</div>
+  <div class="kv mt32"><div class="row"><span>크레딧</span><b>${S.cart.size}건, ${bp()} ${cartCr()}%</b></div><div class="row"><span>결제 수단</span><b>${payLabel()}</b></div><div class="row"><span>결제 수수료</span><b>5% 포함</b></div><div class="row"><span>검수</span><b>잔여량 확인 완료</b></div><div class="row"><span>충전 실패 시</span><b>자동 결제 취소</b></div></div>
+  <button class="li mt24" data-act="agree" style="border-top:1px solid var(--line)"><span class="ck ${S.agree?'on':''}">${S.agree?I('check',14,'stroke-width:2.6'):''}</span><span class="grow" style="font-size:13.5px">기한이 지나면 남은 양이 소멸됨을 확인했습니다</span></button>
+ </div><div class="foot"><button class="btn" data-act="paynow" ${S.agree?'':'disabled'}>결제</button></div>`;});
+def('paying','D-11','결제 중','buy',()=>`<div class="body" style="display:flex;flex-direction:column;justify-content:center;align-items:center"><div class="spin"></div><h3 class="title s mt24">결제 중</h3></div>`,{auto:'paying'});
+const CSTEPS=['결제 완료','판매자 잔여량 재확인','AI 회사로 이전','충전 확인'];
+const chgM=()=>{const it=cartItems();return it.length?it[0].l.model:(S.lastOrder&&S.lastOrder.items[0]?S.lastOrder.items[0].l.model:bm());};
+def('charging','D-12','충전 중','buy',()=>`<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <div class="chg-ic">${aiIc(chgM(),92)}</div>
+  <h3 class="title">${chgM()} 계정에<br>충전 중</h3>
+  <div class="row mt32"><span class="sub" id="c-lab">${CSTEPS[0]}</span><b id="c-pct" style="font-size:20px">0%</b></div>
+  <div class="gauge a live mt8" style="height:8px;border-radius:4px"><i id="c-bar" style="width:0%"></i></div>
+  <div class="steps mt32">${CSTEPS.map((s,i)=>`<div class="step" data-st="${i}"><span class="dot">${I('check',13,'stroke-width:2.8')}</span>${s}</div>`).join('')}</div>
+  <p class="note mt32">AI 회사 이전이 끝난 뒤 완료로 표시됩니다.</p>
+ </div>`,{auto:'charging'});
+def('done','D-13','충전 완료','buy',()=>{const o=order();return `${hdr('',{right:`<button class="iconbtn" data-go="home" aria-label="닫기">${I('x',22)}</button>`,back:false})}<div class="body">
+  <div class="center mt24"><span class="burst" data-m="${o.items[0]?o.items[0].l.model:bm()}">${CHECK(64)}</span><h3 class="title mt16"><span data-up="${o.cr}" data-unit="cr">${o.cr}크레딧</span><br>충전 완료</h3><p class="sub mt8">${bm()}에서 ${bp()} 기준 ${o.cr}% 사용 가능</p></div>
+  <div class="mt24"><div class="row tiny"><span>${bpn()} 잔여 8%</span><span class="acc">+ 크레셀 ${o.cr}%</span></div><div class="split mt8" style="height:8px"><i style="width:8%;background:var(--ink)"></i><i style="width:${o.cr}%;background:var(--acc)"></i></div></div>
+  <div class="kv mt32"><div class="row"><span>판매자</span><b>${sellerSum(o.items.map(x=>x.l.seller))}</b></div><div class="row"><span>기한</span><b>${fShort(secLeft(Math.min(...o.items.map(x=>x.l.exp))))} 뒤부터 순차 소멸</b></div><div class="row"><span>결제</span><b>${won(o.sum)}</b></div></div>
+ </div><div class="foot"><button class="btn" data-act="openai">${bm()}에서 이어 쓰기 ${I('ext',16)}</button><button class="btn t" data-go="review">거래 평가</button></div>`;});
+def('fail','D-14','충전 실패와 환불','buy',()=>{const o=order();return `${hdr('',{back:false})}<div class="body" style="padding-top:12px">
+  <h3 class="title">충전 실패,<br>결제 취소</h3><p class="sub mt12">AI 회사 연동이 응답하지 않았습니다. 크레딧은 판매자에게 반환되었습니다.</p>
+  <div class="kv mt32"><div class="row"><span>취소 금액</span><b>${won(o.sum)}</b></div><div class="row"><span>환불</span><b>${payLabel()}, 즉시</b></div></div>
+ </div><div class="foot"><button class="btn" data-act="retry">${I('retry',18)}다시 시도</button><button class="btn s" data-go="market">다른 크레딧 선택</button><button class="btn t" data-go="chat" data-topic="late">고객센터 문의</button></div>`;});
+
+/* E. 평가 */
+const RTAGS=['빠른 충전','설명과 일치','넉넉한 기한','정확한 양'];
+def('review','E-01','거래 평가','buy',()=>{const o=order();return `${hdr('')}<div class="body" style="padding-top:12px">
+  <h3 class="title s">${sellerSum(o.items.map(x=>x.l.seller))}<br>거래 평가</h3>
+  <div class="stars mt32">${[1,2,3,4,5].map(i=>`<button class="${i<=S.stars?'on':''}" data-act="stars" data-v="${i}" aria-label="${i}점">${I('star',38)}</button>`).join('')}</div>
+  <div class="chips mt32" style="justify-content:center">${RTAGS.map(t=>`<button class="chip ${S.tags.has(t)?'on':''}" data-act="tag" data-t="${t}">${t}</button>`).join('')}</div>
+  <label class="field mt32"><input id="in-rv" placeholder="한 줄 후기 (선택)" aria-label="후기"></label>
+ </div><div class="foot"><button class="btn" data-go="review-done">평가 보내기</button><button class="btn t" data-go="report-issue">문제 신고</button></div>`;});
+def('review-done','E-02','평가 완료','buy',()=>`<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <div class="center">${CHECK(64)}<h3 class="title mt16">평가 완료</h3></div>
+  <div class="row mt32" style="padding-top:16px;border-top:1px solid var(--line)"><span><b style="font-size:15px">잔여 10%에서 알림</b><div class="tiny mt4">빠른 구매로 바로 연결</div></span>${tog('notif.limit',S.notif.limit,'한도 임박 알림')}</div>
+ </div><div class="foot"><button class="btn" data-go="home">홈</button></div>`);
+/* F. 팔기 */
+const mineRow=m=>`<button class="li ${m.isNew?'slidein':''}" data-go="sell-detail" data-id="${m.id}"><span class="grow"><span class="t">${m.cr}크레딧${m.boost?' <span class="tag bst">우선 노출</span>':''}</span>${meta(I('clock',12)+left(m.exp),`조회 ${m.views}`)}</span><span style="text-align:right"><b>${won(sellOf(m.cr,m.exp))}</b><div class="perh mt4">10크레딧 ${won(s10(m.exp))}</div></span></button>`;
+const soldRow=(s,i)=>`<button class="li" data-go="sale-detail" data-i="${i}"><span class="grow"><span class="t">${s.cr}크레딧 판매</span>${meta(s.date,`${s.buyer} 님`)}</span><span style="text-align:right"><b class="acc">+${won(settleOf(s))}</b><div class="tiny mt4">${s.state}</div></span>${CHEV}</button>`;
+def('sell-home','F-01','내놓기 홈','sell',()=>!sellReady()?`${bigHdr('내놓기')}<div class="body" style="display:flex;flex-direction:column;justify-content:center"><div class="center"><span class="ri lg">${I('link',26)}</span><h3 class="title s mt16">구독 중인 AI를 연결하면<br>남는 사용량을 판매합니다</h3><p class="sub mt8">초기화 때 남을 양을 예측해 10% 단위로 판매</p></div></div><div class="foot"><button class="btn" data-go="pick-ai" data-add="1" data-k="sell">AI 연결</button></div>${tabs('sell-home')}`:`${bigHdr('내놓기',`<button class="iconbtn" data-go="auto-sell" aria-label="자동 내놓기">${I('repeat',21)}</button>`)}<div class="body">
+  <div class="hcard mt4">
+   <div class="row"><span class="tag">${sellPlan()}</span><span class="meta">${I('clock',12)}${left(SELL_EXP)}</span></div>
+   <div class="row mt8" style="justify-content:flex-start;align-items:baseline;gap:8px"><span class="huge">${pred().can}%</span><span class="sub" style="font-size:15px">판매 가능 (예측)</span></div>
+   <button class="row plain mt8" data-go="predict"><span class="sub">잔여 예측 ${pred().left}%, 10% 단위</span>${I('chev',16,'color:var(--sub)')}</button>
+  </div>
+  <div class="row mt12" style="gap:8px">
+   <button class="tile" data-go="auto-sell"><span class="ri">${I('repeat',18)}</span><span class="col"><b>자동 내놓기</b><span class="tiny ${S.auto.on?'acc':''}">${S.auto.on?`초기화 ${{'3d':'3일','1d':'1일','6h':'6시간'}[S.auto.before]} 전`:'꺼짐'}</span></span></button>
+   <button class="tile" data-go="settle"><span class="ri">${I('wallet',18)}</span><span class="col"><b>${won(avail())}</b><span class="tiny">출금 가능</span></span></button>
+  </div>
+  <div class="row mt32"><h3 class="sec">판매 중 ${S.mine.length}</h3><button class="link" data-go="selling">현황</button></div>
+  <div class="list mt4">${S.mine.map(mineRow).join('')||'<p class="sub mt8">판매 중인 크레딧 없음</p>'}</div>
+ </div><div class="foot"><button class="btn" data-go="sell-amount">내놓기</button></div>${tabs('sell-home')}`,{tab:true});
+def('predict','F-02','사용량 예측 상세','sell',()=>{const P=pred();return `${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">${sellPlan()}, 초기화 시 잔여 예측</span><div class="huge mt4"><span data-up="${P.left}" data-unit="%">${P.left}%</span></div><p class="sub mt8">최근 4주 같은 요일 기준${S.mine.length?', 판매 중인 양 제외':''}</p>
+  <h3 class="sec mt32">이번 주 하루 사용량</h3><span class="tiny mt4" style="display:block">진한 막대: 실제, 점선: 예측</span>
+  ${chart(P.bars.map(v=>[v,1]).concat(P.fut.map(v=>[v,0])),['월','화','수','목','금','토','일'],25,'%')}
+  <div class="kv mt24"><div class="row"><span>사용</span><b>${P.used}%</b></div><div class="row"><span>남은 기간 예상 사용</span><b>${P.more}%</b></div><div class="row"><span>판매 가능</span><b class="acc">${P.can}% (10% 단위)</b></div></div>
+ </div><div class="foot"><button class="btn" data-act="sellpredict">양 직접 고르기</button></div>`;});
+def('sell-amount','F-03','내놓을 양 고르기','sell',()=>{const P=pred();if(S.sellPct>P.max)S.sellPct=P.max;const x=S.sellPct;return `${hdr('')}<div class="body" style="padding-top:12px">
+  <h3 class="title">판매할 양</h3><p class="sub mt8">이번 주 일정에 맞춰 직접 고릅니다. 예측은 참고용입니다.</p>
+  <div class="row mt16" style="align-items:baseline"><span class="huge"><span data-count="${x}" data-unit="%">${x}%</span></span><span class="sub">${x}크레딧</span></div>
+  ${slider('sellPct',10,P.max,10,P.can,'예측')}
+  <div class="split mt24" style="height:10px" data-gid="sellsplit"><i style="width:${P.used}%;background:var(--ink)"></i><i style="width:${x}%;background:var(--acc)"></i></div>
+  <div class="row mt8 tiny"><span>사용 ${P.used}%</span><span class="acc">판매 ${x}%</span><span>유지 ${100-P.used-x}%</span></div>
+  <p class="sub mt24" style="${x>P.can?'color:var(--warn)':''}">${x>P.can?`예측 잔여(${P.left}%)보다 많음. 이번 주 부족 가능.`:x===P.can?`예측 ${P.left}% 중 ${P.can}% 판매, ${P.left-P.can}%는 초기화 시 소멸.`:'예측보다 적게 판매, 여유 있음.'}</p>
+  <p class="note mt8">팔리기 전에는 언제든 내릴 수 있습니다. 팔리지 않은 양은 초기화 전 한도로 돌아옵니다.</p>
+ </div><div class="foot"><button class="btn" data-go="sell-price">다음</button></div>`;});
+/* 우선 노출: 미리 내는 돈 없이, 팔렸을 때만 정산 5%p를 크레셀에 더 낸다 */
+def('sell-price','F-04','판매 가격과 우선 노출','sell',()=>{const p=s10(SELL_EXP),t=S.sellPct/10*p,r=sellRate();return `${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">판매 가격, 크레셀 결정</span><div class="huge mt4">10크레딧 ${won(p)}</div>
+  <p class="sub mt8">남은 기간이 줄면 자동으로 내려갑니다.</p>
+  <div class="mt16">${ladder(SELL_EXP,1)}</div>
+  <p class="tiny mt8">장터에는 결제 수수료 5%를 더한 10크레딧 ${won(p10(SELL_EXP))}으로 표시됩니다. 정산은 판매 가격 기준입니다.</p>
+  <p class="tiny mt12">현재 1~3일 구간. ${left(SELL_EXP-1440)} 뒤 470원 적용.</p>
+  <div class="row mt24 boost ${S.boost?'on':''}"><span class="ri">${I('trendup',19)}</span><span class="grow"><b style="font-size:15px">우선 노출</b><div class="tiny mt4">같은 가격 구간 맨 위, 빠른 구매 우선 배정<br>팔린 경우에만 정산 5%p 차감</div></span>${tog('boost',S.boost,'우선 노출')}</div>
+  <div class="kv mt24"><div class="row"><span>판매가 (${S.sellPct}크레딧)</span><b>${won(t)}</b></div><div class="row"><span>AI 회사 30%</span><span>-${won(t*.3)}</span></div><div class="row"><span>크레셀 ${S.boost?15:10}%</span><span data-count="${Math.round(t*(.4-(r-.6)-.3))}">-${won(t*(.4-(r-.6)-.3))}</span></div><div class="row" style="padding-top:10px;border-top:1px solid var(--line)"><span style="color:var(--ink);font-weight:600">내 정산 ${Math.round(r*100)}%</span><b class="big acc" data-count="${Math.round(t*r)}">${won(t*r)}</b></div></div>
+  <p class="note mt16">최저가는 정가의 70%인 470원입니다. AI 회사와 정한 하한입니다.</p>
+ </div><div class="foot"><button class="btn" data-go="sell-confirm">다음</button></div>`;});
+def('sell-confirm','F-05','등록 확인','sell',()=>{const t=S.sellPct/10*s10(SELL_EXP);return `${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">${sm()} 크레딧 판매</span><div class="huge mt4">${S.sellPct}크레딧, ${won(t)}</div>
+  <div class="kv mt32"><div class="row"><span>요금제 기준</span><b>${planPct(sm(),S.sellPct)}</b></div><div class="row"><span>기한</span><b>초기화 시각까지</b></div><div class="row"><span>가격</span><b>남은 기간에 따라 자동</b></div><div class="row"><span>우선 노출</span><b>${S.boost?'켜짐':'꺼짐'}</b></div><div class="row"><span>판매자</span><b>${ME}</b></div><div class="row"><span>정산 예상</span><b class="acc">${won(t*sellRate())}</b></div></div>
+  <p class="note mt24">등록 시 AI 회사 연동으로 잔여량을 확인한 뒤 장터에 표시합니다. 약 1분 소요.</p>
+ </div><div class="foot"><button class="btn" data-act="sellpost">장터에 등록</button></div>`;});
+const mktOrder=(x,y)=>p10(x.exp)-p10(y.exp)||(y.boost?1:0)-(x.boost?1:0)||x.exp-y.exp;
+def('sell-done','F-06','등록 완료','sell',()=>{const m=S.lastPost||{cr:S.sellPct,exp:SELL_EXP,boost:S.boost};return `<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <div class="scene"><div class="tiny" style="padding:0 14px 8px">${sm()} 장터, 싼 순</div>
+   ${(()=>{const L=pool().filter(l=>l.model===sm()).sort(mktOrder),k=L.findIndex(l=>mktOrder(m,l)<0),i=k<0?L.length:k,bef=L.slice(Math.max(0,i-2),i),aft=L.slice(i,i+2),row=(l,c)=>`<div class="mrow ${c}"><span>${l.seller} ${l.cr}크레딧</span><b>${won(priceOf(l.cr,l.exp))}</b></div>`;
+     return bef.map(l=>row(l,'')).join('')+`<div class="mrow mine"><span class="up">${I('up',16)}</span><span>내 ${m.cr}크레딧${m.boost?' <span class="tag bst">우선</span>':''}</span><b>${won(priceOf(m.cr,m.exp))}</b></div>`+aft.map((l,j)=>row(l,'after').replace('class="mrow after"',j===aft.length-1?'class="mrow after" style="border-bottom:0"':'class="mrow after"')).join('');})()}
+  </div>
+  <div class="center mt32">${CHECK(52,'late')}<h3 class="title mt12">등록 완료</h3><p class="sub mt8">기한이 줄면 가격은 자동으로 내려갑니다</p></div>
+ </div><div class="foot"><button class="btn" data-go="selling">판매 현황</button><button class="btn t" data-go="sell-home">확인</button></div>`;});
+def('auto-sell','F-07','자동 내놓기 설정','sell',()=>{const a=S.auto;return `${hdr('자동 내놓기')}<div class="body">
+  <div class="row" style="padding:6px 0 18px;border-bottom:1px solid var(--line)"><span><b style="font-size:16px">자동 내놓기</b><div class="tiny mt4">초기화 전 남는 양을 10% 단위로 자동 판매</div></span>${tog('auto.on',a.on,'자동 내놓기')}</div>
+  <div class="autobox ${a.on?'':'fade'}">
+   <span class="tiny mt24" style="display:block">시점</span><div class="chips mt8">${[['3d','초기화 3일 전'],['1d','1일 전'],['6h','6시간 전']].map(([v,n])=>`<button class="chip ${a.before===v?'on':''}" data-act="autobefore" data-v="${v}">${n}</button>`).join('')}</div>
+   <p class="note mt8">일찍 판매할수록 가격은 높고 예측 오차는 커집니다.</p>
+   <span class="tiny mt24" style="display:block">최소 유지량</span><div class="chips mt8">${[0,10,20].map(v=>`<button class="chip ${a.keep===v?'on':''}" data-act="autokeep" data-v="${v}">${v}%</button>`).join('')}</div>
+  </div>
+ </div><div class="foot"><button class="btn" data-act="autosave">저장</button></div>`;});
+def('selling','F-08','판매 현황','sell',()=>{const done=S.sellTab==='done';return `${hdr('판매 현황')}<div class="body" style="padding-top:0">
+  <div class="tabline"><button class="${done?'':'on'}" data-act="selltab" data-k="on">판매 중 ${S.mine.length}</button><button class="${done?'on':''}" data-act="selltab" data-k="done">판매 완료 ${S.sold.length}</button></div>
+  ${done?`<div class="list mt4">${S.sold.map(soldRow).join('')||'<p class="sub mt16">판매 완료 내역 없음</p>'}</div>`
+  :`<div class="list mt4">${S.mine.map(mineRow).join('')||'<p class="sub mt16">판매 중인 크레딧 없음</p>'}</div>
+  <button class="li mt8" data-go="dropped" style="border-top:1px solid var(--line)"><span class="ri">${I('trend',18)}</span><span class="grow"><span class="t" style="font-size:14px">${left(SELL_EXP-1440)} 뒤 470원 자동 인하</span><div class="tiny mt4">1일 미만 구간 진입 시 적용</div></span>${CHEV}</button>`}
+ </div>`;});
+def('sell-detail','F-09','판매 상세 (내리기)','sell',p=>{const m=S.mine.find(x=>x.id===p.id)||S.mine[0]||{id:'s1',cr:10,exp:SELL_EXP,views:14};const st=stageOf(m.exp);return `${hdr('')}<div class="body">
+  <span class="sub">판매 중, ${sm()}</span><div class="huge mt4">${m.cr}크레딧</div>
+  <div class="row mt8"><span class="sub">10크레딧 ${won(st.p)}</span><b class="big">${won(sellOf(m.cr,m.exp))}</b></div>
+  <div class="mt24">${ladder(m.exp,1)}</div>
+  <div class="block mt24"><span class="tiny">${st.min?'다음 자동 인하까지':'남은 기한'}</span><div class="clock mt4">${left(st.min?m.exp-st.min:m.exp,'clock')}</div></div>
+  <div class="kv mt24"><div class="row"><span>조회</span><b>${m.views}회</b></div><div class="row"><span>담김</span><b>3회</b></div><div class="row"><span>우선 노출</span><b>${m.boost?'켜짐':'꺼짐'}</b></div><div class="row"><span>정산 예상</span><b>${won(sellOf(m.cr,m.exp)*(m.rate||.6))}</b></div></div>
+ </div><div class="foot"><button class="btn s" data-act="unlist" data-id="${m.id}" style="color:var(--bad)">판매 중단</button></div>`;});
+const FB_SOLD={date:'11월 18일',buyer:'퇴근후작업',cr:20,price:1080,state:'정산 예정'};
+def('sold','F-10','판매 완료 알림','sell',()=>{const s=S.sold[0]||FB_SOLD,r=s.rate||.6,v=settleOf(s);return `${hdr('',{close:true})}<div class="body" style="padding-top:12px">
+  <span class="sub">${s.buyer} 님, ${s.cr}크레딧 구매</span><div class="huge mt4 acc"><span data-up="${v}" data-plus="1">+${won(v)}</span></div><p class="sub mt8">구매자 충전 확인 후 출금 가능 금액에 반영됩니다.</p>
+  ${splitBlock(s.price,r)}
+ </div><div class="foot"><button class="btn" data-go="sale-detail" data-i="0">거래 상세</button></div>`;});
+def('dropped','F-11','자동 할인 알림','sell',()=>`${hdr('')}<div class="body" style="padding-top:12px">
+  <h3 class="title">가격 자동 인하</h3>
+  <div class="row mt32" style="justify-content:flex-start;gap:16px;align-items:center"><span class="big oldp">540원</span>${I('arrow',20,'color:var(--sub)')}<span class="huge acc newp">470원</span></div>
+  <span class="tiny mt4" style="display:block">10크레딧 기준</span>
+  <p class="sub mt24">초기화까지 1일 미만, 해당 구간 가격이 적용되었습니다. 판매자 조치는 필요 없습니다.</p>
+  <div class="kv mt24"><div class="row"><span>판매 중</span><b>10크레딧</b></div><div class="row"><span>판매 시 정산</span><b class="acc">282원</b></div><div class="row"><span>미판매 시</span><b>초기화 전 한도로 복귀</b></div></div>
+  <p class="note mt16">470원은 AI 회사와 정한 하한입니다.</p>
+ </div><div class="foot"><button class="btn" data-go="selling">확인</button></div>`);
+
+/* G. 내역과 정산 */
+const histTabs=on=>`<div class="tabline">${[['b','산 내역','bought'],['s','판 내역','sold-list'],['r','리포트','report']].map(([k,n,go])=>`<button class="${on===k?'on':''}" data-go="${go}" data-tab="1">${n}</button>`).join('')}</div>`;
+def('bought','G-01','산 내역',null,()=>`${bigHdr('내역')}<div class="body" style="padding-top:0">${histTabs('b')}
+  <div class="list mt8">${S.history.map((h,i)=>`<button class="li" data-go="receipt" data-i="${i}"><span class="grow"><span class="t">${h.model} ${h.cr}크레딧</span>${meta(h.date,sellerSum(h.sellers))}</span><b>${won(h.price)}</b>${CHEV}</button>`).join('')||'<p class="sub mt16">구매 내역 없음</p>'}</div>
+ </div>${tabs('bought')}`,{tab:true});
+def('sold-list','G-02','판 내역',null,()=>`${bigHdr('내역')}<div class="body" style="padding-top:0">${histTabs('s')}
+  <div class="list mt8">${S.sold.map(soldRow).join('')||'<p class="sub mt16">판매 내역 없음</p>'}</div>
+ </div>${tabs('bought')}`,{tab:true});
+const splitBlock=(list,rate=.6,fee=0)=>{const sl=list*rate,ai=list*.3,cr=Math.max(0,list-sl-ai),tot=list+fee,pc=v=>(v/tot*100).toFixed(1)+'%';return `<div class="split mt16"><i style="width:${pc(sl)};background:var(--acc)"></i><i style="width:${pc(ai)};background:var(--ink)"></i><i style="width:${pc(cr)};background:#b9bfbc"></i>${fee?`<i style="width:${pc(fee)};background:#dfe3e1"></i>`:''}</div>
+  <div class="kv mt12" style="font-size:13.5px"><div class="row"><span>판매자 ${Math.round(rate*100)}%</span><b>${won(sl)}</b></div><div class="row"><span>AI 회사 30%</span><b>${won(ai)}</b></div><div class="row"><span>크레셀 ${Math.round((1-rate-.3)*100)}%</span><b>${won(cr)}</b></div>${fee?`<div class="row"><span>결제 수수료 (크레셀)</span><b>${won(fee)}</b></div>`:''}</div>`;};
+const FB_H={date:'11월 20일',model:'Claude',cr:30,price:1710,base:1620,sellers:'퇴근후작업',no:'CR-1120-3000',time:'23:51'};
+def('receipt','G-03','거래 상세',null,p=>{const i=p.i||0,h=S.history[i]||S.history[0]||FB_H;return `${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">${h.date}, 충전 완료</span><div class="huge mt4">${won(h.price)}</div>
+  <div class="kv mt32"><div class="row"><span>크레딧</span><b>${h.model} ${h.cr}크레딧</b></div><div class="row"><span>요금제 기준</span><b>${planPct(h.model,h.cr)}</b></div><div class="row"><span>판매자</span><b>${sellerSum(h.sellers)}</b></div><div class="row"><span>결제 수단</span><b>${h.pay||'간편결제'}</b></div><div class="row"><span>거래 번호</span><b>${h.no}</b></div></div>
+  <h3 class="sec mt32">금액 배분</h3>${(()=>{const b=h.base||Math.round(h.price/(1+FEE));return splitBlock(b,.6,h.price-b);})()}
+ </div><div class="foot" style="flex-direction:row;gap:8px"><button class="btn s" data-go="slip" data-i="${i}">영수증</button><button class="btn s" data-go="report-issue">문제 신고</button></div>`;});
+def('settle','G-04','정산 내역','sell',()=>`${hdr('정산')}<div class="body">
+  <span class="sub">출금 가능</span><div class="huge mt4"><span data-up="${avail()}">${won(avail())}</span></div><p class="tiny mt8">정산 예정 ${won(pending())}, 구매자 충전 확인 후 반영</p>${avail()>0&&avail()<MIN_WD?`<p class="tiny mt4" style="color:var(--warn)">${won(MIN_WD)}부터 출금할 수 있습니다</p>`:''}
+  <div class="list mt24">${S.sold.map((s,i)=>`<button class="li" data-go="sale-detail" data-i="${i}"><span class="grow"><span class="t" style="font-size:14.5px">${s.date}, ${s.cr}크레딧</span><div class="tiny mt4">판매가 ${won(s.price)}의 ${Math.round((s.rate||.6)*100)}%</div></span><span style="text-align:right"><b>+${won(settleOf(s))}</b><div class="tiny mt4">${s.state}</div></span></button>`).join('')||'<p class="sub mt8">판매 내역 없음</p>'}</div>
+ </div><div class="foot"><button class="btn" data-go="${S.bank.num?'withdraw':'bank'}" ${avail()>=MIN_WD?'':'disabled'}>출금</button></div>`);
+def('bank','G-05','정산 계좌',null,()=>S.bank.num&&!S.bankEdit?`${hdr('정산 계좌')}<div class="body" style="padding-top:12px">
+  <div class="hcard"><div class="row" style="gap:12px"><span class="ri" style="background:var(--paper)">${I('wallet',19)}</span><span class="grow"><b style="font-size:16px">${S.bank.name}</b><div class="tiny mt4">${S.bank.num}</div></span><span class="tag a">등록됨</span></div></div>
+  <p class="note mt16">이미 등록된 계좌가 있습니다. 바꾸려면 계좌 변경을 눌러 다시 등록합니다.</p>
+ </div><div class="foot"><button class="btn s" data-act="bankedit">계좌 변경</button></div>`:`${hdr('')}<div class="body" style="padding-top:12px">
+  <h3 class="title">${S.bank.num?'정산 계좌 변경':'정산 계좌 등록'}</h3><p class="sub mt8">본인 명의 계좌만 등록할 수 있습니다.</p>
+  <label class="col mt32"><span class="tiny">은행</span><span class="field"><input id="in-bank" value="신한은행" aria-label="은행"></span></label>
+  <label class="col mt16"><span class="tiny">계좌번호</span><span class="field"><input id="in-acct" value="123-456-789012" aria-label="계좌번호" inputmode="numeric"></span></label>
+  <p class="note mt16">1원 입금 후, 입금자명의 숫자 3자리로 확인합니다.</p>
+ </div><div class="foot"><button class="btn" data-act="bankdone">등록</button></div>`);
+def('withdraw','G-06','출금 신청','sell',()=>{const a=avail();if(S.withdraw>a||!S.withdraw)S.withdraw=a;return `${hdr('')}<div class="body" style="padding-top:12px">
+  <h3 class="title s">출금 금액</h3><div class="huge mt16" data-count="${S.withdraw}">${won(S.withdraw)}</div><p class="tiny mt4">출금 가능 ${won(a)}, 최소 ${won(MIN_WD)}</p>
+  <div class="chips mt16">${[MIN_WD,2000,a].filter((v,i,arr)=>v<=a&&arr.indexOf(v)===i).map(v=>`<button class="chip ${S.withdraw===v?'on':''}" data-act="wd" data-v="${v}">${v===a?'전액':won(v)}</button>`).join('')}</div>
+  <div class="kv mt32"><div class="row"><span>받는 계좌</span><b>${S.bank.name.replace('은행','')} ${S.bank.num}</b></div><div class="row"><span>수수료</span><b>없음</b></div><div class="row"><span>입금</span><b>당일</b></div></div>
+ </div><div class="foot"><button class="btn" data-act="wdgo" ${a>=MIN_WD?'':'disabled'}>출금</button></div>`;});
+def('withdraw-done','G-07','출금 완료','sell',()=>{const w=S.lastWd||S.withdraw||3384;return `<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+  <div class="block" style="padding:18px 16px"><div class="row"><span class="sub">크레셀 출금 가능</span><b>${won(S.lastWd?avail():Math.max(0,avail()-w))}</b></div>
+   <div class="center" style="margin:14px 0"><span class="mover">${I('down',13)} ${won(w)}</span></div>
+   <div class="row"><span class="sub">${(S.bank.name||'신한').replace('은행','')} ${S.bank.num||'123-456-789012'}</span><b class="acc"><span data-up="${w}" data-plus="1">+${won(w)}</span></b></div></div>
+  <div class="center mt32">${CHECK(52,'late')}<h3 class="title mt12">${won(w)}<br>출금 신청 완료</h3><p class="sub mt8">당일 입금</p></div>
+ </div><div class="foot"><button class="btn" data-go="sell-home">확인</button></div>`;});
+def('report','G-08','이번 달 사용 리포트',null,()=>{const w=[0,0,0,0];S.history.forEach(h=>{const d=parseInt(h.date.split(' ')[1]);w[Math.min(3,Math.ceil(d/7)-1)]+=h.price;});const bought=spent(),crs=S.history.reduce((s,h)=>s+h.cr,0),mx=Math.max(2600,...w);return `${bigHdr('내역')}<div class="body" style="padding-top:0">${histTabs('r')}
+  <span class="sub mt16" style="display:block">11월</span><h3 class="title s mt4">${S.history.length?`${S.history.length}회 구매,<br>작업 중단 0일`:'구매 내역 없음'}</h3>
+  <div class="chart mt24">${w.map((v,i)=>`<div class="c"><em>${v?won(v):''}</em><div class="bt"><i class="${v?'on':''}" style="height:${Math.max(3,v/mx*100)}%;animation-delay:${i*.08}s"></i></div><span>${i+1}주</span></div>`).join('')}</div>
+  <div class="kv mt24"><div class="row"><span>구매 금액</span><b data-up="${bought}">${won(bought)}</b></div><div class="row"><span>충전량</span><b>${crs}크레딧</b></div><div class="row"><span>Pro 월 구독료 대비</span><b>${Math.round(bought/29000*100)}%</b></div><div class="row"><span>판매 정산</span><b class="acc">+${won(avail()+S.withdrawn)}</b></div></div>
+ </div>${tabs('bought')}`;},{tab:true});
+def('slip','G-09','영수증',null,p=>{const h=S.history[p.i||0]||S.history[0]||FB_H;return `${hdr('영수증')}<div class="body" style="padding-top:8px">
+  <div style="border:1px solid var(--line);border-radius:4px;padding:22px 18px">
+   <div class="center"><b style="font-size:18px">크레셀 영수증</b><span class="tiny mt4">${h.no}</span></div>
+   <div style="border-top:1.5px dashed var(--line);margin:18px 0"></div>
+   <div class="kv" style="font-size:13.5px"><div class="row"><span>거래 일시</span><b>2026. ${h.date.replace('월 ','. ').replace('일','.')} ${h.time}</b></div><div class="row"><span>상품</span><b>${h.model} ${h.cr}크레딧</b></div><div class="row"><span>판매자</span><b>${sellerSum(h.sellers)}</b></div><div class="row"><span>결제 수단</span><b>${h.pay||'간편결제'}</b></div></div>
+   <div style="border-top:1.5px dashed var(--line);margin:18px 0"></div>
+   <div class="row"><span class="sub">결제 금액</span><b class="big">${won(h.price)}</b></div>
+   <p class="note mt16" style="font-size:11.5px">크레셀(시연용 가상 서비스). 결제 수수료 5% 포함. 판매 가격의 30%는 AI 회사 몫입니다.</p>
+  </div>
+ </div><div class="foot" style="flex-direction:row;gap:8px"><button class="btn s" data-act="slipsave">이미지 저장</button><button class="btn s" data-act="share">${I('share',16)}공유</button></div>`;});
+def('sale-detail','G-10','판매 거래 상세','sell',p=>{const s=S.sold[p.i||0]||S.sold[0]||FB_SOLD;return `${hdr('')}<div class="body" style="padding-top:12px">
+  <span class="sub">${s.date}, ${s.buyer} 님 구매</span><div class="huge mt4 acc">+${won(settleOf(s))}</div>
+  <div class="kv mt32"><div class="row"><span>판매 크레딧</span><b>${sm()} ${s.cr}크레딧</b></div><div class="row"><span>판매가</span><b>${won(s.price)}</b></div><div class="row"><span>우선 노출</span><b>${s.rate===.55?'켜짐':'꺼짐'}</b></div><div class="row"><span>정산 상태</span><b>${s.state}</b></div></div>
+  <h3 class="sec mt32">판매가 배분</h3>${splitBlock(s.price,s.rate||.6)}
+ </div><div class="foot"><button class="btn" data-go="settle">정산 내역</button></div>`;});
+
+/* H. 마이페이지 */
+def('my','H-01','마이페이지',null,()=>`${bigHdr('마이')}<div class="body">
+  <b style="font-size:20px">${ME}</b>${meta(myDeals()?`거래 ${myDeals()}건`:'거래 없음',S.sold.length?I('star',12)+'4.9':'')}
+  <div class="hcard mt16"><span class="tiny">판매 정산, 출금 가능</span><div class="row mt4"><span class="huge" style="font-size:28px"><span data-up="${avail()}">${won(avail())}</span></span><button class="btn sm" data-go="${S.bank.num?'withdraw':'bank'}" ${avail()>=MIN_WD?'':'disabled'}>출금</button></div>${pending()?`<div class="tiny mt4">정산 예정 ${won(pending())}</div>`:''}</div>
+  <div class="list mt16" style="border-top:1px solid var(--line)">${navRow('자동 충전','','auto-charge',`<span class="tag ${S.autoCh.on?'a':''}">${S.autoCh.on?'켜짐':'꺼짐'}</span>`,'','zap')}${navRow('연결된 AI','','accounts',`<span class="tiny">${Object.keys(S.linked).filter(k=>S.linked[k]).join(', ')||'없음'}</span>`,'','link')}${navRow('알림','','notif-set','','','bell')}${navRow('결제 수단','','pay-manage',`<span class="tiny">${S.cards.length}개</span>`,'','card')}${navRow('정산 계좌','','bank',`<span class="tiny">${S.bank.num?S.bank.name:'미등록'}</span>`,'','wallet')}${navRow('친구 초대','','invite',S.invited?`<span class="tiny">${S.invited}명</span>`:'','','gift')}${navRow('고객센터','','chat','','','help')}${navRow('이용 가이드','','intro1','','data-k="g"','book')}</div>
+ </div>${tabs('my')}`,{tab:true});
+def('accounts','H-02','연결된 AI 계정 관리',null,()=>{const ask=S.unlinkAsk;return `${hdr('연결된 AI')}<div class="body">
+  <div class="list">${['Claude','GPT','Gemini'].map(m=>{const on=S.linked[m];return `<div class="li ${S.newLink===m?'slidein':''}"><span class="grow"><span class="t">${m}</span><div class="tiny mt4">${on?`${!canSell(m)?'무료 이용':BASE[m]+' 구독'}${m===S.sellM?', 판매용':''}`:'미연결'}</div></span>${on?`<span class="tag a">${I('shield',12)}</span><button class="btn sm s" data-act="unlinkask" data-m="${m}" style="color:var(--bad)">해제</button>`:`<button class="btn sm s" data-go="oauth" data-m="${m}" data-add="1">연결</button>`}</div>`;}).join('')}</div>
+  <p class="note mt16">연결을 해제해도 충전된 크레딧은 그대로 사용할 수 있습니다.</p>
+ </div>${ask?sheet(`<h3 class="sec" style="font-size:18px">${ask} 연결 해제</h3><p class="sub" style="margin:0">충전된 크레딧은 유지됩니다. 판매 중인 ${ask} 크레딧은 장터에서 내려갑니다.</p><button class="btn" data-act="unlinkok" style="background:var(--bad)">해제</button><button class="btn t" data-act="unlinkno">취소</button>`,'unlinkno'):''}`;});
+def('notif-set','H-03','알림 설정',null,()=>`${hdr('알림')}<div class="body">
+  <div class="list">${[['limit','한도 임박','잔여 10%'],['reset','초기화 전 잔여','판매 여부 확인'],['sold','판매 완료','정산 금액 포함'],['price','관심 모델 가격 인하',''],['news','혜택과 소식','']].map(([k,n,s])=>`<div class="li"><span class="grow"><span class="t" style="font-size:15px">${n}</span>${s?`<div class="tiny mt4">${s}</div>`:''}</span>${tog('notif.'+k,S.notif[k],n)}</div>`).join('')}</div>
+  <p class="note mt16">밤 11시부터 오전 8시까지는 한도 알림만 발송합니다.</p>
+ </div>`);
+def('pay-manage','H-04','결제 수단 관리',null,()=>`${hdr('결제 수단')}<div class="body">
+  <div class="list">${S.cards.map((c,i)=>`<div class="li ${c.isNew&&S.newCard?'slidein':''}"><span class="ri">${I('card',18)}</span><span class="grow"><span class="t">${c.name}</span><div class="tiny mt4">${c.sub}</div></span>${c.main?'<span class="tag">기본</span>':`<button class="btn sm s" data-act="mainpay" data-i="${i}">기본</button><button class="btn sm s" data-act="cardask" data-i="${i}" style="color:var(--bad)">삭제</button>`}</div>`).join('')||'<p class="sub mt8">등록된 카드 없음. 휴대폰 결제는 카드 없이 이용할 수 있습니다.</p>'}</div>
+  <button class="btn s mt16" data-go="card-add">${I('plus',16)}결제 수단 추가</button>
+  ${S.cards.length>1?'<p class="note mt16">기본 결제 수단은 다른 수단을 기본으로 바꾼 뒤 삭제할 수 있습니다.</p>':''}
+ </div>${S.cardAsk!=null&&S.cards[S.cardAsk]?sheet(`<h3 class="sec" style="font-size:18px">${S.cards[S.cardAsk].name} 삭제</h3><p class="sub" style="margin:0">${S.cards[S.cardAsk].sub}. 지난 결제 내역은 유지됩니다.</p><button class="btn" data-act="carddel" style="background:var(--bad)">삭제</button><button class="btn t" data-act="cardno">취소</button>`,'cardno'):''}`);
+def('card-add','H-05','결제 수단 추가',null,()=>`${hdr('카드 추가')}<div class="body" style="padding-top:12px">
+  <h3 class="title s">카드 정보 입력</h3>
+  <label class="col mt32"><span class="tiny">카드 번호</span><span class="field"><input id="in-card" value="1234-5678-0000-1234" aria-label="카드 번호" inputmode="numeric"></span></label>
+  <div class="row mt16" style="gap:16px"><label class="col" style="flex:1"><span class="tiny">유효기간</span><span class="field"><input value="12/29" aria-label="유효기간"></span></label><label class="col" style="flex:1"><span class="tiny">카드 별명</span><span class="field"><input id="in-nick" value="생활비 카드" aria-label="카드 별명" maxlength="12"></span></label></div>
+  <p class="note mt16">카드 정보는 결제대행사로 바로 전송되며 크레셀은 보관하지 않습니다.</p>
+ </div><div class="foot"><button class="btn" data-act="cardadd">등록</button></div>`);
+/* 자동 충전: 모든 사용자 무료. 거래를 늘리는 기능이라 유료로 묶지 않는다. 직접 누르지 않는 결제라 월 최대 금액만 둔다 */
+def('auto-charge','H-06','자동 충전 설정',null,()=>{const a=S.autoCh,q=quickFill(bm(),a.cr,a.days);return `${hdr('자동 충전')}<div class="body">
+  <div class="row" style="padding:6px 0 18px;border-bottom:1px solid var(--line)"><span><b style="font-size:16px">자동 충전</b><div class="tiny mt4">${bm()} 잔여 5%에서 자동 충전</div></span>${tog('autoCh.on',a.on,'자동 충전')}</div>
+  <div class="autobox ${a.on?'':'fade'}">
+   <span class="tiny mt24" style="display:block">1회 충전량</span><div class="chips mt8">${[10,20,30,50].map(v=>`<button class="chip ${a.cr===v?'on':''}" data-act="acr" data-v="${v}">${v}%</button>`).join('')}</div>
+   <span class="tiny mt24" style="display:block">사용 기간</span><div class="chips mt8">${[1,2,3].map(v=>`<button class="chip ${a.days===v?'on':''}" data-act="adays" data-v="${v}">${v}일</button>`).join('')}</div>
+   <span class="tiny mt24" style="display:block">월 최대 금액</span><div class="chips mt8">${[3000,5000,10000].map(v=>`<button class="chip ${a.max===v?'on':''}" data-act="amax" data-v="${v}">${won(v)}</button>`).join('')}</div>
+   <p class="note mt8">직접 결제하지 않는 기능이므로, 월 최대 금액을 넘으면 충전하지 않고 먼저 확인합니다.</p>
+   <div class="col mt16" style="gap:8px"><div class="row"><span class="sub">이번 달 자동 충전</span><span style="font-size:14px"><b>${won(a.used)}</b> <span class="tiny">/ ${won(a.max)}</span></span></div><div class="gauge a" data-gid="amax"><i style="width:${Math.min(100,a.used/a.max*100)}%"></i></div></div>
+   <div class="kv mt24"><div class="row"><span>1회 예상 금액</span><b data-count="${q.sum}">${won(q.sum)}</b></div><div class="row"><span>결제 수단</span><b>${payLabel()}</b></div></div>
+  </div>
+ </div><div class="foot"><button class="btn" data-act="autochsave">저장</button></div>`;});
+
+/* X. 고객센터 */
+const CHAT={
+ home:{start:{bot:['문의 유형을 선택해 주세요.'],chips:[['충전량 부족','less:start'],['충전 지연','late:start'],['판매자 문제','seller:start'],['기타','etc:start']]}},
+ less:{
+  start:{bot:['해당 거래를 선택해 주세요.'],chips:()=>S.history.length?S.history.slice(0,2).map(h=>[`${h.date} ${h.model} ${h.cr}크레딧`,'check']):[['구매 내역 없음','endn']]},
+  endn:{bot:['구매 내역이 생기면 거래별로 신고할 수 있습니다. 내역의 거래 상세에서도 신고할 수 있습니다.'],chips:[['확인','bye']]},
+  check:{bot:['AI 회사 충전 기록과 대조 중입니다.','30크레딧만 충전되었습니다. 판매자 1명의 크레딧이 이전 중 누락되었습니다.','누락된 10크레딧 금액 570원을 환불했습니다.'],chips:[['누락분 다시 충전','refill'],['환불로 종료','endr']]},
+  refill:{bot:['같은 조건의 최저가 10크레딧을 추가 결제 없이 충전했습니다.','Claude 계정에서 확인해 주세요.'],chips:[['확인 완료','bye']]},
+  endr:{bot:['환불금은 오늘 중 결제 수단으로 입금됩니다.'],chips:[['확인','bye']]},
+  bye:{bot:['처리가 완료되었습니다. 상담 내용은 내역에 보관됩니다.'],chips:[]}},
+ late:{
+  start:{bot:['진행 상황을 확인합니다.','결제와 판매자 확인은 완료되었고, AI 회사로 이전하는 단계입니다. 현재 Claude 쪽 응답이 지연되고 있습니다.'],chips:[['예상 소요 시간','eta'],['결제 취소','cancel']]},
+  eta:{bot:['5분 안에 완료되지 않으면 결제가 자동 취소됩니다. 완료 시 알림을 보냅니다.'],chips:[['기다리기','bye']]},
+  cancel:{bot:['이전 완료 전이라 즉시 취소할 수 있습니다.','결제를 취소했습니다. 크레딧은 판매자에게 반환되었습니다.'],chips:[['확인','bye']]},
+  bye:{bot:['추가 문의는 언제든 남겨 주세요.'],chips:[]}},
+ seller:{
+  start:{bot:['크레셀 거래는 판매자와 직접 연락하지 않습니다. 문제 유형을 선택해 주세요.'],chips:[['판매자가 크레딧을 회수한 것 같음','take'],['평가 수정','rv']]},
+  take:{bot:['이전된 크레딧은 AI 회사 연동으로 고정되어 판매자가 회수할 수 없습니다.','사용 기록 확인 결과, 최근 1시간 동안 12크레딧을 사용했고 18크레딧이 남아 있습니다.'],chips:[['확인','bye'],['운영팀 연결','human']]},
+  rv:{bot:['평가는 작성 후 24시간 안에 수정할 수 있습니다. 구매 내역의 해당 거래에서 수정합니다.'],chips:[['확인','bye']]},
+  human:{bot:['운영팀 담당자에게 전달했습니다. 오늘 중 이 대화창으로 답변합니다.'],chips:[]},
+  bye:{bot:['확인되었습니다. 추가 문의는 언제든 남겨 주세요.'],chips:[]}},
+ etc:{
+  start:{bot:['문의 내용을 입력하거나 자주 묻는 질문을 선택해 주세요.'],chips:[['구매한 크레딧 사용 기한','exp'],['정산 시점','settle']]},
+  exp:{bot:['구매한 크레딧은 판매자의 초기화 시각까지 사용할 수 있습니다. 여러 건이면 기한이 짧은 것부터 사용됩니다.'],chips:[['확인','bye']]},
+  settle:{bot:['구매자 충전이 확인되면 출금 가능 금액에 반영됩니다. 출금 수수료는 없으며 당일 입금됩니다.'],chips:[['확인','bye']]},
+  bye:{bot:['문의가 종료되었습니다.'],chips:[]}}
+};
+let chatT=null;
+const normChips=(tp,chips)=>((typeof chips==='function'?chips():chips)||[]).map(([l,n])=>[l,n.includes(':')?n:tp+':'+n]);
+function chatStart(topic){clearTimeout(chatT);S.chat={topic,log:[],chips:[],typing:false};chatNode(topic+':start');}
+function chatNode(key){const [tp,nk]=key.split(':'),n=CHAT[tp][nk],msgs=n.bot.slice();S.chat.chips=[];
+  if(window.__still||reduce){msgs.forEach(m=>S.chat.log.push(['bot',m]));S.chat.chips=normChips(tp,n.chips);return;}
+  const step=()=>{if(!msgs.length){S.chat.typing=false;S.chat.chips=normChips(tp,n.chips);if(cur==='chat')render();return;}
+    S.chat.typing=true;if(cur==='chat')render();chatT=setTimeout(()=>{S.chat.log.push(['bot',msgs.shift()]);step();},700);};
+  step();}
+def('chat','X-01','고객센터 채팅',null,()=>`${hdr('고객센터')}<div class="body" style="display:flex;flex-direction:column">
+  <div class="msgs">${S.chat.log.map(([w,t])=>`<div class="bubble ${w==='me'?'me':'bot'}">${t}</div>`).join('')}${S.chat.typing?'<div class="bubble bot typing"><i></i><i></i><i></i></div>':''}</div>
+  ${S.chat.chips.length?`<div class="chips mt12">${S.chat.chips.map(([l],i)=>`<button class="chip" data-act="chatpick" data-v="${i}">${l}</button>`).join('')}</div>`:''}
+  <div class="row" style="margin-top:auto;padding-top:16px"><span class="row" style="flex:1;background:var(--fill);border-radius:22px;padding:10px 14px"><span class="sub">메시지 입력</span>${I('send',18)}</span></div></div>`);
+def('report-issue','X-02','거래 문제 신고',null,()=>`${hdr('문제 신고')}<div class="body"><div class="list">${[['충전량 부족','less','zap'],['충전 지연','late','clock'],['판매자 문제','seller','user'],['기타','etc','help']].map(([t,k,ic])=>navRow(t,'','chat','',`data-topic="${k}"`,ic)).join('')}</div><p class="note mt16">운영팀이 AI 회사 기록과 대조해 확인되면 해당 금액을 환불합니다.</p></div>`);
+
+/* ---------- 라우터, 렌더, 움직임 ---------- */
+const MAIN=SC.filter(s=>!s.hidden);
+const scr=document.getElementById('scr');
+let cur='ext-push',param={},stack=[],timer=null,freshTimer=null,lastId=null,chargeRaf=null;
+const reduce=false;
+const PARENT={intro1:'splash',intro2:'intro1',intro3:'intro2',login:'intro3',terms:'login','term-sheet':'terms','pick-ai':'terms',oauth:'pick-ai',notif:'linked',
+ invite:'home',inbox:'home','ai-reco':'home',filter:'market',search:'market',sort:'market',listing:'market',seller:'listing',quick:'home',cart:'market','pay-method':'cart','pay-confirm':'pay-method',fail:'market',
+ review:'done','review-done':'home',predict:'sell-home','sell-amount':'sell-home','sell-price':'sell-amount','sell-confirm':'sell-price','auto-sell':'sell-home',selling:'sell-home','sell-detail':'selling',sold:'sell-home',dropped:'selling',
+ receipt:'bought',slip:'receipt','sale-detail':'sold-list',settle:'sell-home',bank:'settle',withdraw:'settle',accounts:'my',report:'bought','notif-set':'my','pay-manage':'my','card-add':'pay-manage',chat:'my','report-issue':'bought','auto-charge':'my'};
+const fmtv=(el,v)=>{const u=el.dataset.unit||'원',r=Math.round(v),pre=el.dataset.plus?'+':'';return pre+(u==='원'?won(r):u==='cr'?r+'크레딧':r.toLocaleString('ko-KR')+u);};
+function tween(el,from,to,d=380){if(reduce||from===to||window.__still)return;const t0=performance.now();const step=now=>{const k=Math.min(1,(now-t0)/d),e=1-Math.pow(1-k,3);el.textContent=fmtv(el,from+(to-from)*e);if(k<1)requestAnimationFrame(step);};requestAnimationFrame(step);}
+function sbar(dark){return `<div class="sbar" style="${dark?'color:#fff':''}"><span>${dark?'':'9:41'}</span><span class="r">5G<span class="bat"></span></span></div>`;}
+function render(dir='none'){
+  const s=SC.find(x=>x.id===cur)||SC[0];
+  cancelAnimationFrame(chargeRaf);
+  const prevS=SC.find(x=>x.id===lastId)||{},hadSheet=!!scr.querySelector('.sheet');
+  if(s.sheet||(prevS.sheet&&dir==='back'))dir='none'; /* 시트는 뒤 화면을 그대로 두고 시트만 움직인다 */
+  const oldBody=scr.querySelector('.view .body'); const keep=dir==='none'&&oldBody?oldBody.scrollTop:0;
+  const prevCounts={}; scr.querySelectorAll('[data-count]').forEach((el,i)=>prevCounts[i]=+el.dataset.count);
+  const oldPos={}; if(S._flip) scr.querySelectorAll('[data-lid]').forEach(e=>oldPos[e.dataset.lid]=e.getBoundingClientRect().top);
+  const oldG={}; scr.querySelectorAll('[data-gid]').forEach(g=>oldG[g.dataset.gid]=[...g.querySelectorAll('i')].map(i=>i.style.width));
+  scr.style.background=s.darkbg&&!S.wf?s.darkbg:''; scr.className='scr'+(S.wf?' wf':'')+(s.dark&&!s.darkbg?' lockbg':'')+(dir!=='none'&&!window.__still?' entering':'')+(hadSheet?' keep':'');
+  scr.innerHTML=sbar(s.dark)+`<div class="view">${s.render(param)}</div>`;
+  const nb=scr.querySelector('.view .body'); if(nb) nb.scrollTop=cur==='chat'?nb.scrollHeight:keep;
+  const anim=!reduce&&!window.__still&&!S.wf;
+  if(anim){
+    if(dir==='none'&&lastId===cur) scr.querySelectorAll('[data-count]').forEach((el,i)=>{if(prevCounts[i]!=null)tween(el,prevCounts[i],+el.dataset.count);});
+    if(dir!=='none') scr.querySelectorAll('[data-up]').forEach(el=>tween(el,0,+el.dataset.up,800));
+    if(dir==='none'&&lastId===cur) scr.querySelectorAll('[data-gid]').forEach(g=>{const o=oldG[g.dataset.gid];if(o)[...g.querySelectorAll('i')].forEach((i,k)=>{if(o[k]&&o[k]!==i.style.width)i.animate([{width:o[k]},{width:i.style.width}],{duration:420,easing:'cubic-bezier(.2,.7,.2,1)'});});});
+    if(S._flip) scr.querySelectorAll('[data-lid]').forEach(e=>{const o=oldPos[e.dataset.lid];if(o==null){e.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:320});return;}const d=o-e.getBoundingClientRect().top;if(Math.abs(d)>1)e.animate([{transform:`translateY(${d}px)`},{transform:'none'}],{duration:440,easing:'cubic-bezier(.2,.8,.2,1)'});});
+    const v=scr.querySelector('.view');
+    if(dir==='fwd') v.animate([{transform:'translateX(32px)',opacity:0},{transform:'none',opacity:1}],{duration:280,easing:'cubic-bezier(.2,.75,.2,1)'});
+    if(dir==='back') v.animate([{transform:'translateX(-32px)',opacity:0},{transform:'none',opacity:1}],{duration:260,easing:'cubic-bezier(.2,.75,.2,1)'});
+    if(dir==='tab'||dir==='jump') v.animate([{opacity:0},{opacity:1}],{duration:200,easing:'ease-out'});
+  }
+  if(anim&&cur==='done'&&dir!=='none') burst();
+  /* 이전 화면의 타이머가 새 화면 움직임을 중간에 끊지 않게 매번 지우고 다시 건다 */
+  if(dir!=='none'){clearTimeout(enterT);enterT=setTimeout(()=>scr.classList.remove('entering'),2700);}
+  S._popFoot=false; S.freshFlash=false; S._flip=false; lastId=cur;
+  S.mine.forEach(m=>m.isNew=false); S.newLink=null; S.newCard=false;
+  document.getElementById('cap').innerHTML=`<code>${s.code}</code><b>${s.name}</b><span>${G[s.code[0]]}</span>`;
+  document.querySelectorAll('#idx button').forEach(b=>b.setAttribute('aria-current',b.dataset.id===cur?'true':'false'));
+  document.getElementById('mobsel').value=cur;
+  try{ if(location.hash.slice(1)!==cur) history.replaceState(null,'','#'+cur);}catch(e){}
+  clearTimeout(timer);
+  if(s.auto==='paying'&&!window.__still) timer=setTimeout(()=>go('charging',{},true),1300);
+  if(s.auto==='charging') runCharge();
+  clearTimeout(freshTimer);
+  if(cur==='market'&&!S.freshShown&&S.model==='Claude'&&dir!=='none'&&!window.__still) freshTimer=setTimeout(()=>{S.freshShown=true;S.freshFlash=true;S._flip=true;if(cur==='market')render();},4500);
+}
+function burst(){const src=scr.querySelector('.burst'),v=scr.querySelector('.view');if(!src||!v)return;const m=src.dataset.m,vr=v.getBoundingClientRect(),r=src.getBoundingClientRect(),k=vr.width/v.offsetWidth||1;
+  const cx=(r.left+r.width/2-vr.left)/k,cy=(r.top+r.height/2-vr.top)/k,N=18;
+  for(let i=0;i<N;i++){const sz=20+Math.round(Math.random()*14),el=document.createElement('div');el.className='fly';el.innerHTML=aiIc(m,sz);el.style.left=(cx-sz/2)+'px';el.style.top=(cy-sz/2)+'px';v.appendChild(el);
+    const ang=(-165+150*(i/(N-1))+(Math.random()*14-7))*Math.PI/180,sp=110+Math.random()*90,dx=Math.cos(ang)*sp,dy=Math.sin(ang)*sp,rot=(Math.random()*2-1)*220;
+    el.animate([{transform:'translate(0,0) scale(.2)',opacity:0},{transform:`translate(${dx*.35}px,${dy*.35}px) scale(1)`,opacity:1,offset:.14},{transform:`translate(${dx*1.7}px,${dy*1.7}px) scale(.85) rotate(${rot*.5}deg)`,opacity:0}],
+      {duration:1300+Math.random()*500,delay:720+Math.random()*160,easing:'cubic-bezier(.15,.7,.3,1)',fill:'both'}).onfinish=()=>el.remove();}}
+function runCharge(){
+  const bar=scr.querySelector('#c-bar'),pct=scr.querySelector('#c-pct'),lab=scr.querySelector('#c-lab'),steps=[...scr.querySelectorAll('[data-st]')],thr=[6,38,78,100];
+  const set=p=>{bar.style.width=p+'%';pct.textContent=Math.floor(p)+'%';let k=thr.findIndex(t=>p<t);if(k<0)k=4;steps.forEach((s,i)=>{s.classList.toggle('ok',i<k);s.classList.toggle('now',i===k);});lab.textContent=k<4?CSTEPS[k]:'충전 완료';};
+  if(window.__still){set(55);return;}
+  if(reduce||S.wf){set(100);timer=setTimeout(()=>{commit();go(S.failed?'fail':'done',{},true);},700);return;}
+  const D=4200,t0=performance.now();
+  const f=now=>{if(cur!=='charging')return;const k=Math.min(1,(now-t0)/D);
+    const e=k<.45?k/.45*.62:k<.7?.62+(k-.45)/.25*.1:.72+(1-Math.pow(1-(k-.7)/.3,2))*.28; /* AI 회사 이전에서 잠깐 느려짐 */
+    set(e*100);if(k<1)chargeRaf=requestAnimationFrame(f);else timer=setTimeout(()=>{commit();go(S.failed?'fail':'done',{},true);},450);};
+  chargeRaf=requestAnimationFrame(f);
+}
+function go(id,p={},replace=false,dir){
+  if(id==='bank')S.bankEdit=false;
+  if(id==='chat')chatStart(p.topic||'home');
+  if(!replace&&cur!==id) stack.push([cur,param]);
+  cur=id; param=p||{}; render(dir||(replace?'jump':'fwd'));
+}
+/* 시트는 아래로 내려간 뒤 닫는다 */
+function sheetOut(fn){const sh=scr.querySelector('.sheet'),bg=scr.querySelector('.sheet-bg');if(!sh||window.__still){fn();return;}
+  sh.animate([{transform:'none'},{transform:'translateY(100%)'}],{duration:220,easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'});bg.animate([{opacity:1},{opacity:0}],{duration:220,fill:'forwards'}).onfinish=fn;}
+/* 완료 화면에서 뒤로가기는 결제나 신청 화면으로 되돌아가지 않고 다음 자리로, 진행 중 화면은 뒤로가기를 막는다 */
+const DONEBACK={done:'home','sell-done':'sell-home','withdraw-done':'settle','review-done':'home'};
+function back(){const s=SC.find(x=>x.id===cur);if(s&&s.sheet){closeSheet();return;}
+  if(cur==='paying'||cur==='charging'){toast('결제가 끝날 때까지 기다려 주세요');return;}
+  if(DONEBACK[cur]){stack=[];cur=DONEBACK[cur];param={};render('back');return;}
+  const b=stack.pop();if(b){cur=b[0];param=b[1];render('back');}else if(PARENT[cur]){cur=PARENT[cur];param={};render('back');}}
+function closeSheet(flip){sheetOut(()=>{S._flip=!!flip;const b=stack.pop();if(b){cur=b[0];param=b[1];}else cur=PARENT[cur]||'market';render('none');});}
+function commit(){if(!S.cart.size)fillCart();const it=cartItems();const o={items:it,cr:cartCr(),sum:cartSum()};S.lastOrder=o;if(S.failed)return;S.charged+=o.cr;
+  S.history.unshift({date:'11월 20일',model:it[0].l.model,cr:o.cr,price:o.sum,base:it.reduce((a,x)=>a+sellOf(x.cr,x.l.exp),0),pay:payLabel(),sellers:it.map(x=>x.l.seller).join(', '),no:'CR-1120-'+(3000+S.history.length*137),time:'23:51'});S.cart.clear();S.cartTouched=false;}
+let toastT=null,enterT=null;
+function toast(m){scr.querySelectorAll('.toast').forEach(e=>e.remove());const d=document.createElement('div');d.className='toast';d.textContent=m;scr.appendChild(d);clearTimeout(toastT);toastT=setTimeout(()=>d.remove(),1900);}
+const later=(f,ms=320)=>setTimeout(f,window.__still?0:ms);
+
+const A={
+ back,
+ cart:d=>{const l=byId(d.id),was=S.cart.size;S.cart.has(d.id)?S.cart.delete(d.id):S.cart.set(d.id,l.cr);S.cartTouched=true;S._popFoot=!was&&S.cart.size>0;render();},
+ cartx:(d,el)=>{const row=el.closest('.li');S.cartTouched=true;const fin=()=>{S.cart.delete(d.id);render();};if(reduce||!row){fin();return;}const h=row.offsetHeight;row.animate([{opacity:1,height:h+'px'},{opacity:0,height:'0px',paddingTop:'0px',paddingBottom:'0px'}],{duration:240,easing:'ease-in'}).onfinish=fin;},
+ model:d=>{if(S.model!==d.m){S.model=d.m;}S._flip=true;render();}, bucket:d=>{S.bucket=d.k;S._flip=true;render();},
+ fseller:d=>{S[d.k]=!S[d.k];S._flip=true;render();},
+ sort:d=>{S.sort=d.k;closeSheet(true);},
+ resetf:()=>{S.bucket='all';S.fRating=false;S.fDeals=false;S._flip=true;render();},
+ pickmodel:d=>{S.model=d.m;go('market');},
+ reco:()=>{S.qNeed=30;S.qDays=2;go('quick');},
+ qdays:d=>{S.qDays=+d.v;render();},
+ quickcart:()=>{fillCart();S.cartTouched=true;go('cart');},
+ quickpay:()=>{fillCart();S.cartTouched=true;S.model=bm();go('pay-confirm');},
+ buynow:d=>{S.cart.clear();S.cart.set(d.id,byId(d.id).cr);S.cartTouched=true;go('cart');},
+ pay:d=>{S.pay=d.k;render();}, agree:()=>{S.agree=!S.agree;render();},
+ paynow:()=>{if(!S.cart.size)fillCart();S.failed=false;go('paying');},
+ retry:()=>{S.failed=false;go('paying',{},true);},
+ openai:()=>toast(`${bm()} 앱으로 이동합니다`),
+ extsub:()=>toast('Claude 요금 안내로 이동합니다'),
+ stars:d=>{S.stars=+d.v;render();}, tag:d=>{S.tags.has(d.t)?S.tags.delete(d.t):S.tags.add(d.t);render();},
+ tg:(d,el)=>{if(d.k==='boost'){S.boost=!S.boost;render();return;}const [a,b]=d.k.split('.');if(b)S[a][b]=!S[a][b];else S[a]=!S[a];const on=b?S[a][b]:S[a];el.classList.toggle('on',on);el.setAttribute('aria-checked',on);if(d.k==='auto.on'||d.k==='autoCh.on'){const box=scr.querySelector('.autobox');if(box)box.classList.toggle('fade',!on);}},
+ term:d=>{const t=S.terms;if(d.k==='all'){const v=!t.all;Object.keys(t).forEach(k=>t[k]=v);}else{t[d.k]=!t[d.k];t.all=t.t1&&t.t2&&t.t3&&t.t4;}render();},
+ termagree:d=>{S.terms[d.k]=true;const t=S.terms;t.all=t.t1&&t.t2&&t.t3&&t.t4;closeSheet();},
+ pickfree:d=>{S.pickFree=!!d.k;render();}, pickai:d=>{if(d.add)S.addAI=d.m;else S.pickAI=d.m;render();}, sellpick:d=>{S.sellM=d.m;back();later(()=>toast(`${d.m} 판매 설정`));},
+ oauthok:()=>{const m=param.m||S.pickAI,sell=param.k==='sell';S.linked[m]=true;if(sell)S.sellM=m;if(!param.add&&!sell){S.buyM=m;S.model=m;S.buyFree=S.pickFree;}
+   if(param.add){S.newLink=m;while(stack.length&&['oauth','pick-ai'].includes(stack[stack.length-1][0]))stack.pop();const b=stack.pop();if(b){cur=b[0];param=b[1];}else cur='home';render('back');later(()=>toast(`${m} 연결 완료`));}else go('linked');},
+ unlinkask:d=>{S.unlinkAsk=d.m;render();}, unlinkno:()=>sheetOut(()=>{S.unlinkAsk=null;render();}),
+ unlinkok:()=>{const m=S.unlinkAsk;S.linked[m]=false;if(S.sellM===m)S.sellM=null;S.unlinkAsk=null;render();toast(`${m} 연결 해제`);},
+ copy:()=>{try{navigator.clipboard.writeText('CRS-7Q2K').catch(()=>{});}catch(e){} toast('초대 코드 복사됨');},
+ share:()=>toast('공유할 앱 선택'), slipsave:()=>toast('영수증 저장됨'),
+ sellpredict:()=>{go('sell-amount');},
+ autobefore:d=>{S.auto.before=d.v;render();}, autokeep:d=>{S.auto.keep=+d.v;render();},
+ autosave:()=>{back();later(()=>toast(S.auto.on?'자동 내놓기 저장됨':'자동 내놓기 꺼짐'));},
+ sellpost:()=>{const m={id:'s'+Date.now(),cr:S.sellPct,exp:SELL_EXP+Math.round(S.t/60),views:0,isNew:true,rate:sellRate(),boost:S.boost};S.mine.unshift(m);S.lastPost=m;go('sell-done');
+   /* 시연: 잠시 뒤 팔리고, 구매자 충전이 확인되면 정산 완료로 바뀐다 */
+   if(!window.__still)setTimeout(()=>{if(!S.mine.includes(m))return;S.mine=S.mine.filter(x=>x!==m);const r={date:'11월 20일',buyer:'밤샘코더',cr:m.cr,price:sellOf(m.cr,m.exp),state:'정산 예정',rate:m.rate};S.sold.unshift(r);toast(`${m.cr}크레딧 판매 완료. 정산 예정 ${won(settleOf(r))}`);if(['sell-home','selling','sold-list','settle','home'].includes(cur))render();
+     setTimeout(()=>{r.state='정산 완료';S.withdraw=avail();if(['sell-home','sold-list','settle'].includes(cur))render();},6000);},9000);},
+ unlist:d=>{S.mine=S.mine.filter(m=>m.id!==d.id);stack.pop();go('selling',{},true,'back');later(()=>toast('판매 중단. 사용량은 한도로 복귀'));},
+ bankdone:()=>{const was=!!S.bank.num,nm=((document.getElementById('in-bank')||{}).value||'').trim()||'신한은행',num=((document.getElementById('in-acct')||{}).value||'').trim()||'123-456-789012';S.bank={name:nm,num};S.bankEdit=false;render();toast(was?'정산 계좌 변경 완료':'정산 계좌 등록 완료');},
+ bankedit:()=>{S.bankEdit=true;render();},
+ wd:d=>{S.withdraw=+d.v;render();},
+ wdgo:()=>{const w=Math.min(S.withdraw,avail());S.lastWd=w;S.withdrawn+=w;S.withdraw=avail();go('withdraw-done');},
+ mainpay:d=>{S.cards.forEach((c,i)=>c.main=i===+d.i);render();},
+ cardadd:()=>{const nick=((document.getElementById('in-nick')||{}).value||'').trim()||'카드',num=((document.getElementById('in-card')||{}).value||'').replace(/\D/g,''),l4=num.slice(-4)||'0000',first=!S.cards.length;
+   S.cards.push({name:nick,sub:'신용카드 '+l4,main:first,isNew:true});S.newCard=true;if(first||S.pay==='phone')S.pay='c'+(S.cards.length-1);back();later(()=>toast(`${nick} 등록 완료`));},
+ cardask:d=>{S.cardAsk=+d.i;render();}, cardno:()=>sheetOut(()=>{S.cardAsk=null;render();}),
+ carddel:()=>{const i=S.cardAsk,c=S.cards[i];sheetOut(()=>{S.cardAsk=null;const sel=S.pay;S.cards.splice(i,1);const mi=S.cards.findIndex(x=>x.main);if(sel==='c'+i||!S.cards.length)S.pay=mi>=0?'c'+mi:'phone';else if(sel.startsWith('c')&&+sel.slice(1)>i)S.pay='c'+(+sel.slice(1)-1);render();toast(`${c.name} 삭제됨`);});},
+ guideclose:()=>{while(stack.length&&stack[stack.length-1][0]!=='my')stack.pop();if(stack.length)back();else{cur='my';param={};render('back');}},
+ selltab:d=>{S.sellTab=d.k;render();},
+ /* 스플래시의 시작하기는 가입이므로 새 고객 상태에서 시작. 이미 계정이 있으면 예시 데이터 계정으로 로그인 */
+ startnew:()=>{if(!S.fresh)freshState();go('intro1');},
+ autorun:()=>{const a=S.autoCh;S.cart.clear();quickFill(bm(),a.cr,a.days).picks.forEach(x=>S.cart.set(x.id,x.cr));const t=cartSum();
+   if(a.used+t>a.max){S.cart.clear();go('auto-charge');later(()=>toast('월 최대 금액 초과, 자동 충전 보류'));return;}
+   a.used+=t;S.failed=false;commit();go('done');later(()=>toast(`자동 충전 완료. ${a.cr}크레딧, ${won(t)}`));},
+ acr:d=>{S.autoCh.cr=+d.v;render();}, amax:d=>{S.autoCh.max=+d.v;render();}, adays:d=>{S.autoCh.days=+d.v;render();},
+ autochsave:()=>{back();later(()=>toast(S.autoCh.on?`자동 충전 켜짐. 잔여 5%에서 ${S.autoCh.cr}크레딧`:'자동 충전 꺼짐'));},
+ q:d=>{S.q=d.q;render();const n=document.getElementById('in-q');if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}},
+ qclear:()=>{S.q='';render();const n=document.getElementById('in-q');if(n)n.focus();},
+ chatpick:d=>{const c=S.chat.chips[+d.v];if(!c)return;S.chat.log.push(['me',c[0]]);S.chat.chips=[];render();later(()=>chatNode(c[1]),250);}
+};
+scr.addEventListener('click',e=>{
+  const t=e.target.closest('[data-act],[data-go],[data-stop]'); if(!t||!scr.contains(t))return;
+  if(t.dataset.stop&&!e.target.closest('[data-act],[data-go]'))return;
+  const p={};['id','k','m','topic','add'].forEach(k=>{if(t.dataset[k]!=null)p[k]=t.dataset[k];});if(t.dataset.i!=null)p.i=+t.dataset.i;
+  if(t.dataset.go){ if(t.dataset.tab){stack=[];go(t.dataset.go,p,true,'tab');} else go(t.dataset.go,p); }
+  else if(A[t.dataset.act]) A[t.dataset.act](t.dataset,t);
+});
+/* 검색: 입력칸은 다시 그리지 않고 결과만 바꿔서 한글 조합이 깨지지 않게 */
+const updSearch=el=>{S.q=el.value.trim();const r=document.getElementById('sres');if(r)r.innerHTML=searchBody();const x=scr.querySelector('[data-act="qclear"]');if(x)x.style.visibility=S.q?'visible':'hidden';};
+scr.addEventListener('input',e=>{if(e.target.id==='in-q')updSearch(e.target);});
+scr.addEventListener('compositionend',e=>{if(e.target.id==='in-q')updSearch(e.target);});
+/* 슬라이더: 끌기와 방향키, 10% 단위로 붙음 */
+let drag=null;
+const sliderVal=(el,x)=>{const r=el.getBoundingClientRect(),min=+el.dataset.min,max=+el.dataset.max,st=+el.dataset.step;const k=Math.max(0,Math.min(1,(x-r.left)/r.width));return Math.round((min+k*(max-min))/st)*st;};
+function sliderSet(key,v){if(S[key]===v)return;S[key]=v;render();const el=scr.querySelector(`[data-slider="${key}"]`);if(el&&drag)el.classList.add('drag');}
+scr.addEventListener('pointerdown',e=>{const el=e.target.closest('[data-slider]');if(!el)return;e.preventDefault();drag=el.dataset.slider;el.classList.add('drag');el.focus();sliderSet(drag,sliderVal(el,e.clientX));});
+addEventListener('pointermove',e=>{if(!drag)return;const el=scr.querySelector(`[data-slider="${drag}"]`);if(el)sliderSet(drag,sliderVal(el,e.clientX));});
+addEventListener('pointerup',()=>{if(!drag)return;const el=scr.querySelector(`[data-slider="${drag}"]`);drag=null;if(el){el.classList.remove('drag');el.focus();}});
+scr.addEventListener('keydown',e=>{const el=e.target.closest('[data-slider]');if(!el)return;const st=+el.dataset.step,k=el.dataset.slider;let v=S[k];
+  if(e.key==='ArrowRight'||e.key==='ArrowUp')v+=st;else if(e.key==='ArrowLeft'||e.key==='ArrowDown')v-=st;else return;e.preventDefault();
+  v=Math.max(+el.dataset.min,Math.min(+el.dataset.max,v));if(v===S[k])return;S[k]=v;render();const n=scr.querySelector(`[data-slider="${k}"]`);if(n)n.focus();});
+/* 뒤로가기: Esc, 마우스 뒤로 버튼 */
+addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();back();}});
+addEventListener('mouseup',e=>{if(e.button===3){e.preventDefault();back();}});
+
+/* 남은 시간 1초마다 */
+setInterval(()=>{if(window.__still)return;S.t++;scr.querySelectorAll('[data-exp]').forEach(el=>{const s=secLeft(+el.dataset.exp);el.textContent=el.dataset.fmt==='clock'?fClock(s):fShort(s);});},1000);
+
+/* ---------- 흐름도 보드 (?board=D, 캡처 전용) ---------- */
+const ACTGO={buynow:'cart',paynow:'paying',quickpay:'pay-confirm',quickcart:'cart',reco:'quick',retry:'paying',sellpost:'sell-done',sellpredict:'sell-amount',wdgo:'withdraw-done',oauthok:'linked',cardadd:'pay-manage',pickmodel:'market',unlist:'selling',termagree:'terms',autosave:'sell-home',autochsave:'my',startnew:'intro1',guideclose:'my',autorun:'done',sellpick:'sell-home'};
+const AUTO={paying:'charging',charging:'done'};
+function buildBoard(g,opt={}){
+  const all=g==='all',GK=Object.keys(G),keep=[cur,param];
+  window.__still=true;S.wf=all?!!opt.wf:true;chatStart('home');
+  const W=390,H=824,GX=all?240:200,GY=all?300:170,PX=all?300:150,PY=240;
+  let list,COLS,ROWS,cell;
+  if(all){list=MAIN;const by=k=>MAIN.filter(s=>s.code[0]===k);COLS=Math.max(...GK.map(k=>by(k).length));ROWS=GK.length;cell=s=>[by(s.code[0]).indexOf(s),GK.indexOf(s.code[0])];}
+  else{list=MAIN.filter(s=>s.code[0]===g);COLS=Math.min(5,list.length);ROWS=Math.ceil(list.length/COLS);cell=s=>{const i=list.indexOf(s);return[i%COLS,Math.floor(i/COLS)];};}
+  const BW=PX*2+COLS*W+(COLS-1)*GX,BH=PY+ROWS*(H+46)+(ROWS-1)*GY+90;
+  const sh=document.querySelector('.shell');if(sh){window.__shell=sh;sh.remove();}
+  document.body.style.cssText=opt.view?'margin:0;padding:0;overflow:hidden':`margin:0;padding:0;background:#f5f5f5;width:${BW}px`;
+  const b=document.createElement('div');b.className='board';b.style.cssText=`width:${BW}px;height:${BH}px`;
+  b.innerHTML=all?`<div style="position:absolute;left:${PX}px;top:44px"><div style="font-size:34px;font-weight:800;color:#111">크레셀 전체 흐름도 <span style="font-size:20px;color:#646b6f;font-weight:600">화면 ${MAIN.length}개, 한 장</span></div><div style="font-size:16px;color:#555;margin-top:8px">한 줄이 한 묶음(A~X). 선은 누르는 곳(동그라미)에서 이동하는 화면(화살촉)으로, 화면 사이 빈칸만 따라 이어짐. 남색은 같은 묶음 안, 회청색은 다른 묶음으로 가는 선, 점선은 자동 전환</div></div>`
+   :`<div style="position:absolute;left:${PX}px;top:44px"><div style="font-size:30px;font-weight:700;color:#111">${G[g]}</div><div style="font-size:15px;color:#666;margin-top:6px">크레셀 와이어프레임 흐름도. 선은 누르는 곳에서 이동하는 화면으로 화면 사이 빈칸을 따라 이어짐. 점선은 자동 전환, 남색 꼬리표는 다른 묶음으로 가는 링크</div></div>`;
+  let host=document.body;
+  if(opt.view){host=document.createElement('div');host.className='bview';document.body.appendChild(host);}
+  host.appendChild(b);
+  if(all)GK.forEach((k,r)=>{const d=document.createElement('div');d.className='glabel';d.style.cssText=`left:30px;top:${PY+r*(H+46+GY)+36}px;width:${PX-190}px;white-space:normal`;const n=MAIN.filter(s=>s.code[0]===k).length;d.innerHTML=`${G[k].split('. ')[0]}<span>${G[k].split('. ')[1]}<br>${n}개</span>`;b.appendChild(d);});
+  const pos={};
+  list.forEach(s=>{const [col,row]=cell(s),x=PX+col*(W+GX),y=PY+row*(H+46+GY);pos[s.id]={x,y:y+36,top:y,col,row};
+    const c=document.createElement('div');c.className='bcard';c.style.cssText=`left:${x}px;top:${y}px`;
+    cur=s.id;param={};
+    c.innerHTML=`<div class="bl"><code>${s.code}</code>${s.name}</div><div class="bf"><div class="scr${S.wf?' wf':''}${s.dark&&(S.wf||!s.darkbg)?' lockbg':''}" style="${s.darkbg&&!S.wf?'background:'+s.darkbg:''}">${sbar(s.dark)}<div class="view">${s.render({})}</div></div></div>`;
+    c.dataset.sid=s.id;b.appendChild(c);});
+  const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg');svg.setAttribute('width',BW);svg.setAttribute('height',BH);svg.style.cssText='position:absolute;left:0;top:0;pointer-events:none;z-index:2';
+  svg.innerHTML='<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1f2a4d"/></marker><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6f84a8"/></marker></defs>';
+  b.appendChild(svg);const br=b.getBoundingClientRect(),seen=new Set();
+  /* 직각 연결선: 화면 위를 지나지 않고 열 사이 빈칸(세로 길)과 행 사이 빈칸(가로 길)으로만 다닌다. 선마다 길 안의 자리를 따로 받아 겹치지 않게 한다 */
+  const vUse={},hUse={},inUse={};
+  const gL=c=>c<0?(all?PX-150:0):PX+c*(W+GX)+W,gR=c=>c>=COLS-1?BW:PX+(c+1)*(W+GX);
+  const laneX=c=>{const k=vUse[c]=(vUse[c]||0)+1,l=gL(c),w=gR(c)-l,n=Math.max(1,Math.floor((w-40)/13));return l+20+((k-1)%n)*13;};
+  const laneY=r=>{const k=hUse[r]=(hUse[r]||0)+1,bot=PY+r*(H+46+GY)-8,top=r?bot-GY+20:bot-60,n=Math.max(1,Math.floor((bot-top)/11));return bot-((k-1)%n)*11;};
+  const entry=t=>{const k=inUse[t]=(inUse[t]||0)+1;return pos[t].y+40+((k-1)%14)*30;};
+  const line=(x1,y1,src,t,dash)=>{const S0=pos[src],T=pos[t],ey=entry(t),tx=T.x-2,xs=laneX(S0.col);let pts;
+    if(T.col===S0.col+1)pts=[[x1,y1],[xs,y1],[xs,ey],[tx,ey]];
+    else{const hy=laneY(T.row),xt=laneX(T.col-1);pts=[[x1,y1],[xs,y1],[xs,hy],[xt,hy],[xt,ey],[tx,ey]];}
+    const p=document.createElementNS(NS,'path');p.setAttribute('d','M'+pts.map(q=>q.join(' ')).join(' L'));
+    const far=S0.row!==T.row&&all,col=far?'#6f84a8':'#1f2a4d';
+    p.setAttribute('fill','none');p.setAttribute('stroke',col);p.setAttribute('stroke-width','2');p.setAttribute('stroke-linejoin','round');p.setAttribute('marker-end',far?'url(#ah2)':'url(#ah)');if(dash)p.setAttribute('stroke-dasharray','7 6');p.dataset.s=src;p.dataset.t=t;svg.appendChild(p);
+    const o=document.createElementNS(NS,'circle');o.setAttribute('cx',x1);o.setAttribute('cy',y1);o.setAttribute('r','4.5');o.setAttribute('fill','#fff');o.setAttribute('stroke',col);o.setAttribute('stroke-width','2');o.dataset.s=src;o.dataset.t=t;svg.appendChild(o);};
+  b.querySelectorAll('.bcard').forEach(card=>{const sid=card.dataset.sid;
+    (card.querySelector('.sheet')||card).querySelectorAll('[data-go],[data-act]').forEach(el=>{if(el.closest('.tabs')||el.dataset.tab||el.dataset.act==='back')return;
+      let t=el.dataset.go||ACTGO[el.dataset.act];if(!t||t===sid)return;
+      const key=sid+'>'+t;if(seen.has(key))return;seen.add(key);
+      const r=el.getBoundingClientRect();if(!r.width)return;const x1=r.right-br.left-4,y1=r.top-br.top+r.height/2;
+      if(pos[t]){line(x1,y1,sid,t);}
+      else{const ts=SC.find(s=>s.id===t);if(!ts)return;const tg=document.createElement('span');tg.className='btag';tg.textContent='→ '+ts.code;tg.style.left=(x1+6)+'px';tg.style.top=(y1-10)+'px';b.appendChild(tg);}});
+    if(AUTO[sid]&&pos[AUTO[sid]]){const r=card.getBoundingClientRect();line(r.right-br.left,r.top-br.top+H/2,sid,AUTO[sid],true);}});
+  window.__board={w:BW,h:BH,cards:b.querySelectorAll('.bcard').length,lines:svg.querySelectorAll('path').length,tags:b.querySelectorAll('.btag').length};
+  cur=keep[0];param=keep[1];
+  if(opt.view)boardView(host,b,BW,BH,all,opt);
+}
+/* 한 화면 흐름도 보기: 확대 축소, 이동, 미니맵, 화면 누르면 프로토타입으로 */
+function boardView(host,b,BW,BH,all,opt){
+  let k=1,tx=0,ty=0;
+  const tool=document.createElement('div');tool.className='btool';
+  tool.innerHTML=`<b>크레셀 전체 흐름도</b><button type="button" data-z="fit">전체 맞춤</button><button type="button" data-z="out" aria-label="축소">-</button><span class="zv"></span><button type="button" data-z="in" aria-label="확대">+</button><span class="sep"></span>${Object.keys(G).map((g,r)=>`<button type="button" data-row="${r}">${g}</button>`).join('')}<span class="sep"></span><button type="button" data-v="ui" aria-pressed="${!opt.wf}">완성 화면</button><button type="button" data-v="wf" aria-pressed="${!!opt.wf}">와이어</button><span class="sep"></span><button type="button" data-v="proto">프로토타입으로</button>`;
+  document.body.appendChild(tool);
+  const hint=document.createElement('div');hint.className='bhint';hint.textContent='끌어서 이동, 휠이나 두 손가락으로 확대, 화면을 누르면 그 화면부터 시연';document.body.appendChild(hint);
+  const MW=190,mk=MW/BW,mini=document.createElement('div');mini.className='bmini';mini.style.cssText=`width:${MW}px;height:${Math.round(BH*mk)}px`;
+  b.querySelectorAll('.bcard').forEach(c=>{const i=document.createElement('i');i.style.cssText=`left:${c.offsetLeft*mk}px;top:${c.offsetTop*mk}px;width:${390*mk}px;height:${860*mk}px`;mini.appendChild(i);});
+  const vp=document.createElement('div');vp.className='vp';mini.appendChild(vp);document.body.appendChild(mini);
+  const apply=()=>{b.style.transform=`translate(${tx}px,${ty}px) scale(${k})`;tool.querySelector('.zv').textContent=Math.round(k*100)+'%';
+    vp.style.cssText=`left:${-tx/k*mk}px;top:${-ty/k*mk}px;width:${innerWidth/k*mk}px;height:${innerHeight/k*mk}px`;};
+  const fitAll=()=>{const top=tool.offsetHeight+24;k=Math.min((innerWidth-24)/BW,(innerHeight-top-12)/BH);tx=(innerWidth-BW*k)/2;ty=top;apply();};
+  const zoomAt=(f,cx,cy)=>{const nk=Math.min(2,Math.max(.03,k*f));tx=cx-(cx-tx)*nk/k;ty=cy-(cy-ty)*nk/k;k=nk;apply();};
+  const goRow=r=>{const y=240+r*(824+46+300);k=Math.max(k,Math.min(.45,innerWidth/(BW*.6)));tx=-300*k+12;ty=-(y-40)*k+tool.offsetHeight+24;apply();};
+  const exit=sid=>{const u=location.pathname+'#'+(sid||cur);if(window.__shell&&!new URLSearchParams(location.search).get('board')){host.remove();tool.remove();hint.remove();mini.remove();document.body.style.cssText='';document.body.appendChild(window.__shell);window.__still=false;S.wf=!!opt.wfBack;stack=[];if(sid){cur=sid;param={};if(sid==='chat')chatStart('home');}render('jump');fit();}else location.href=u;};
+  tool.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
+    if(t.dataset.z==='fit')fitAll();if(t.dataset.z==='in')zoomAt(1.25,innerWidth/2,innerHeight/2);if(t.dataset.z==='out')zoomAt(.8,innerWidth/2,innerHeight/2);
+    if(t.dataset.row)goRow(+t.dataset.row);
+    if(t.dataset.v==='proto')exit();
+    if(t.dataset.v==='ui'||t.dataset.v==='wf'){const wf=t.dataset.v==='wf';if(wf===!!opt.wf)return;host.remove();tool.remove();hint.remove();mini.remove();buildBoard('all',{view:true,wf,wfBack:opt.wfBack});}});
+  mini.addEventListener('pointerdown',e=>{const r=mini.getBoundingClientRect(),x=(e.clientX-r.left)/mk,y=(e.clientY-r.top)/mk;tx=innerWidth/2-x*k;ty=innerHeight/2-y*k;apply();e.stopPropagation();});
+  host.addEventListener('wheel',e=>{e.preventDefault();zoomAt(Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),e.clientX,e.clientY);},{passive:false});
+  const pts=new Map();let moved=0,last=null,pinch=null;
+  host.addEventListener('pointerdown',e=>{host.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);moved=0;host.classList.add('drag');
+    if(pts.size===2){const [a,c]=[...pts.values()];pinch={d:Math.hypot(a[0]-c[0],a[1]-c[1]),k};}last=[e.clientX,e.clientY];});
+  host.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;const p0=pts.get(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===2&&pinch){const [a,c]=[...pts.values()],d=Math.hypot(a[0]-c[0],a[1]-c[1]),cx=(a[0]+c[0])/2,cy=(a[1]+c[1])/2;zoomAt(pinch.k*d/pinch.d/k,cx,cy);moved+=99;return;}
+    const dx=e.clientX-p0[0],dy=e.clientY-p0[1];moved+=Math.abs(dx)+Math.abs(dy);tx+=dx;ty+=dy;apply();});
+  const up=e=>{pts.delete(e.pointerId);if(pts.size<2)pinch=null;if(!pts.size)host.classList.remove('drag');
+    if(e.type==='pointerup'&&moved<6&&!pts.size){const el=document.elementFromPoint(e.clientX,e.clientY),c=el&&el.closest('.bcard');if(c)exit(c.dataset.sid);}};
+  host.addEventListener('pointerup',up);host.addEventListener('pointercancel',up);
+  /* 화면에 올리면 그 화면에서 나가고 들어오는 선만 진하게 */
+  b.addEventListener('pointerover',e=>{const c=e.target.closest('.bcard');if(!c||pts.size)return;const id=c.dataset.sid;host.classList.add('focus');
+    b.querySelectorAll('.on').forEach(x=>x.classList.remove('on'));c.classList.add('on');
+    b.querySelectorAll('svg path,svg circle').forEach(x=>{if(x.dataset.s===id||x.dataset.t===id){x.classList.add('on');const o=b.querySelector(`.bcard[data-sid="${x.dataset.s===id?x.dataset.t:x.dataset.s}"]`);if(o)o.classList.add('on');}});});
+  b.addEventListener('pointerleave',()=>{host.classList.remove('focus');b.querySelectorAll('.on').forEach(x=>x.classList.remove('on'));});
+  addEventListener('resize',apply);
+  fitAll();window.__bv={fit:fitAll,state:()=>({k,tx,ty})};
+}
+
+/* 패널 */
+const qs=new URLSearchParams(location.search);
+try{if(qs.get('app')==='1'||matchMedia('(display-mode: standalone)').matches||navigator.standalone)document.documentElement.classList.add('app');}catch(e){}
+if(qs.get('board')){const bg=qs.get('board');if(bg==='all'&&!qs.get('cap'))buildBoard('all',{view:true,wf:qs.get('wf')==='1'});else buildBoard(bg,{wf:qs.get('wf')==='1'});return;}
+const idx=document.getElementById('idx'),sel=document.getElementById('mobsel');
+idx.innerHTML=Object.keys(G).map(k=>`<div><h3>${G[k]} <span style="font-weight:400">${MAIN.filter(s=>s.code[0]===k).length}</span></h3>${MAIN.filter(s=>s.code[0]===k).map(s=>`<button type="button" data-id="${s.id}"><code>${s.code}</code><span>${s.name}</span></button>`).join('')}</div>`).join('');
+sel.innerHTML=MAIN.map(s=>`<option value="${s.id}">${s.code} ${s.name}</option>`).join('');
+const jump=id=>{stack=[];if(id==='chat')chatStart('home');cur=id;param={};render('jump');};
+idx.addEventListener('click',e=>{const b=e.target.closest('button');if(b)jump(b.dataset.id);});
+sel.addEventListener('change',()=>jump(sel.value));
+const setPressed=(a,b,v)=>{document.getElementById(a).setAttribute('aria-pressed',v);document.getElementById(b).setAttribute('aria-pressed',!v);};
+document.getElementById('v-ui').onclick=()=>{S.wf=false;setPressed('v-ui','v-wf',true);render('jump');};
+document.getElementById('v-wf').onclick=()=>{S.wf=true;setPressed('v-ui','v-wf',false);render('jump');};
+document.getElementById('v-all').onclick=()=>{const keep=[cur,param,S.wf];buildBoard('all',{view:true,wf:S.wf,wfBack:S.wf});};
+const ord=MAIN.map(s=>s.id);
+document.getElementById('prev').onclick=()=>{const i=ord.indexOf(cur);stack=[];const id=ord[(i-1+ord.length)%ord.length];if(id==='chat')chatStart('home');cur=id;param={};render('back');};
+document.getElementById('next').onclick=()=>{const i=ord.indexOf(cur);stack=[];const id=ord[(i+1)%ord.length];if(id==='chat')chatStart('home');cur=id;param={};render('fwd');};
+document.getElementById('restart').onclick=()=>{freshState();clearTimeout(timer);stack=[];S.t=0;go('splash',{},true);toast('초기화 완료. 새 고객 상태로 시작');};
+
+/* 폰 크기 맞추기 */
+function fit(){const f=document.getElementById('fit');
+  if(document.documentElement.classList.contains('app')){const ph=document.getElementById('phone'),k=Math.min(innerWidth/390,innerHeight/760),w=Math.min(innerWidth/k,520);ph.style.width=w+'px';ph.style.height=(innerHeight/k)+'px';ph.style.transform=`scale(${k})`;f.style.height=innerHeight+'px';f.style.marginLeft=((innerWidth-w*k)/2)+'px';return;}
+  const w=f.clientWidth;let k=Math.min(1,w/390);if(innerWidth>900)k=Math.min(k,Math.max(.62,(innerHeight-120)/844));document.getElementById('phone').style.transform=`scale(${k})`;f.style.height=(844*k)+'px';}
+addEventListener('resize',fit);fit();
+
+/* 캡처용: 시간을 멈추고 화면을 바로 띄움 */
+window.cresell={go:id=>{window.__still=true;stack=[];S.t=0;if(id==='chat')chatStart('home');cur=id;param={};render('none');},list:()=>MAIN.map(s=>[s.id,s.code,s.name]),wf:v=>{S.wf=v;render('none');}};
+const h=location.hash.slice(1); if(h&&SC.find(s=>s.id===h)){cur=h;if(h==='chat')chatStart('home');}
+render('jump');
+const canBack=()=>{const s=SC.find(x=>x.id===cur);return !!(s&&s.sheet)||stack.length>0||!!PARENT[cur];};
+try{history.pushState({cr:1},'',location.href);addEventListener('popstate',()=>{if(!document.getElementById('scr').isConnected)return;if(canBack()){back();history.pushState({cr:1},'',location.href);}else history.back();});}catch(e){}
+})();
+</script>
+
+<script>if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+</body></html>
