@@ -264,6 +264,20 @@ html.app .scr .sbar{height:max(10px,env(safe-area-inset-top,0px));visibility:hid
 .grab{width:36px;height:4px;border-radius:2px;background:#d3d8d5;margin:0 auto}
 .pop{animation:up .3s cubic-bezier(.2,.8,.2,1)}
 .lockbg{background:#1f2b28;color:#fff}
+.launcher{display:flex;flex-direction:column;align-items:center;padding:30px 22px 26px;color:#fff;gap:0}
+.launcher .lclock{font-size:64px;font-weight:300;letter-spacing:-2px;line-height:1}
+.launcher .ldate{font-size:14px;opacity:.85;margin-top:6px}
+.launcher .lgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 12px;width:100%;margin-top:auto;margin-bottom:28px}
+.lapp{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;color:#fff;font-size:11.5px;padding:0;cursor:pointer}
+.lapp .lt{width:58px;height:58px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.16);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.lapp .lt .ic{color:#fff}
+.lapp.cr .lt{background:#0f6b55;flex-direction:column;gap:5px}
+.lapp.cr .lt b{font-size:13px;letter-spacing:-.3px}
+.lapp.cr .lt i{display:flex;gap:1.5px}.lapp.cr .lt i u{width:3px;height:5px;border:1px solid #fff;border-radius:1px;display:block}.lapp.cr .lt i u:first-child{background:#fff}
+.lhint{font-size:12.5px;opacity:.75;margin-bottom:6px}
+.launchov{position:absolute;inset:0;z-index:20;background:#0f6b55;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:30px;letter-spacing:3px;transform-origin:var(--ox,50%) var(--oy,80%);animation:lzoom .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes lzoom{from{transform:scale(.12);border-radius:40px;opacity:.6}to{transform:none;border-radius:0;opacity:1}}
+.scr.wf .launcher .lapp .lt{background:#bbb}
 .noti{background:rgba(255,255,255,.9);color:#111418;border-radius:16px;padding:12px 14px;display:flex;gap:10px;text-align:left;border:0;width:100%}
 .noti b{font-size:13px}
 .entering .noti{animation:drop .45s cubic-bezier(.2,.8,.2,1) both}
@@ -709,6 +723,11 @@ def('notif','A-10','알림 허용',null,()=>`<div class="body" style="display:fl
 def('term-sheet','A-11','약관 요약',null,p=>{const k=p.k||'t1',[ttl,lines]=TERMS[k];return SC.find(s=>s.id==='terms').render()+sheet(`<h3 class="sec" style="font-size:18px">${ttl}</h3><ul class="tl">${lines.map(x=>`<li>${x}</li>`).join('')}</ul><button class="btn" data-act="termagree" data-k="${k}">${S.terms[k]?'확인':'동의'}</button>`);},{sheet:true});
 
 /* B. 바깥 접점 */
+def('launcher','B-00','휴대폰 바탕화면','buy',()=>{const apps=[['phone','전화'],['send','메시지'],['clock','시계'],['book','메모'],['users','연락처'],['wallet','지갑'],['search','검색']];return `<div class="body launcher">
+  <span class="lclock">23:48</span><span class="ldate">11월 20일 금요일</span>
+  <div class="lgrid">${apps.slice(0,3).map(([i,t])=>`<button class="lapp" data-act="launchx"><span class="lt">${I(i,26)}</span>${t}</button>`).join('')}<button class="lapp cr" data-act="launch" aria-label="크레셀 열기"><span class="lt"><b>크레셀</b><i>${'<u></u>'.repeat(10)}</i></span>크레셀</button>${apps.slice(3).map(([i,t])=>`<button class="lapp" data-act="launchx"><span class="lt">${I(i,26)}</span>${t}</button>`).join('')}</div>
+  <span class="lhint">크레셀 아이콘을 눌러 앱을 여세요</span>
+ </div>`;},{dark:true,darkbg:'linear-gradient(165deg,#1c4c41 0%,#0d201b 62%,#18241f 100%)',hidden:true});
 def('ext-push','B-01','잠금 화면 푸시 알림','buy',()=>{const a=S.autoCh,q=a.on?quickFill(bm(),a.cr,a.days):null,s0=S.sold[0];return `<div class="body lockbg" style="display:flex;flex-direction:column;gap:10px;padding-top:20px">
   <div class="center" style="margin-bottom:28px"><span style="font-size:15px;opacity:.8">11월 20일 금요일</span><span style="font-size:80px;font-weight:300;letter-spacing:-3px;line-height:1.1">23:48</span></div>
   ${a.on?`<button class="noti" data-act="autorun"><span class="grow"><span class="row"><b>크레셀</b><span class="tiny">지금</span></span><span style="font-size:13.5px;line-height:1.5;display:block;margin-top:2px">${bm()} 잔여 5%. 자동 충전 ${a.cr}크레딧, ${won(q.sum)}.</span></span></button>`
@@ -1082,9 +1101,9 @@ def('report-issue','X-02','거래 문제 신고',null,()=>`${hdr('문제 신고'
 /* ---------- 라우터, 렌더, 움직임 ---------- */
 const MAIN=SC.filter(s=>!s.hidden);
 const scr=document.getElementById('scr');
-let cur='home',param={},stack=[],timer=null,freshTimer=null,lastId=null,chargeRaf=null;
+let cur='launcher',param={},stack=[],timer=null,freshTimer=null,lastId=null,chargeRaf=null;
 const reduce=false;
-const PARENT={intro1:'splash',intro2:'intro1',intro3:'intro2',login:'intro3',terms:'login','term-sheet':'terms','pick-ai':'terms',oauth:'pick-ai',notif:'linked',
+const PARENT={home:'launcher',market:'home','sell-home':'home',bought:'home','sold-list':'home',my:'home',intro1:'splash',intro2:'intro1',intro3:'intro2',login:'intro3',terms:'login','term-sheet':'terms','pick-ai':'terms',oauth:'pick-ai',notif:'linked',
  invite:'home',inbox:'home','ai-reco':'home',filter:'market',search:'market',sort:'market',listing:'market',seller:'listing',quick:'home',cart:'market','pay-method':'cart','pay-confirm':'pay-method',fail:'market',
  review:'done','review-done':'home',predict:'sell-home','sell-amount':'sell-home','sell-price':'sell-amount','sell-confirm':'sell-price','auto-sell':'sell-home',selling:'sell-home','sell-detail':'selling',sold:'sell-home',dropped:'selling',
  receipt:'bought',slip:'receipt','sale-detail':'sold-list',settle:'sell-home',bank:'settle',withdraw:'settle',accounts:'my',report:'bought','notif-set':'my','pay-manage':'my','card-add':'pay-manage',chat:'my','report-issue':'bought','auto-charge':'my'};
@@ -1147,6 +1166,7 @@ function runCharge(){
   chargeRaf=requestAnimationFrame(f);
 }
 function go(id,p={},replace=false,dir){
+  if(id!==cur){S.cardAsk=null;S.unlinkAsk=null;}
   if(id==='bank')S.bankEdit=false;
   if(id==='chat')chatStart(p.topic||'home');
   if(!replace&&cur!==id) stack.push([cur,param]);
@@ -1158,6 +1178,7 @@ function sheetOut(fn){const sh=scr.querySelector('.sheet'),bg=scr.querySelector(
 /* 완료 화면에서 뒤로가기는 결제나 신청 화면으로 되돌아가지 않고 다음 자리로, 진행 중 화면은 뒤로가기를 막는다 */
 const DONEBACK={done:'home','sell-done':'sell-home','withdraw-done':'settle','review-done':'home'};
 function back(){const s=SC.find(x=>x.id===cur);if(s&&s.sheet){closeSheet();return;}
+  if(S.cardAsk!=null||S.unlinkAsk){S.cardAsk=null;S.unlinkAsk=null;render('none');return;}
   if(cur==='paying'||cur==='charging'){toast('결제가 끝날 때까지 기다려 주세요');return;}
   if(DONEBACK[cur]){stack=[];cur=DONEBACK[cur];param={};render('back');return;}
   const b=stack.pop();if(b){cur=b[0];param=b[1];render('back');}else if(PARENT[cur]){cur=PARENT[cur];param={};render('back');}}
@@ -1169,6 +1190,10 @@ function toast(m){scr.querySelectorAll('.toast').forEach(e=>e.remove());const d=
 const later=(f,ms=320)=>setTimeout(f,window.__still?0:ms);
 
 const A={
+ launch:()=>{const t=scr.querySelector('.lapp.cr .lt'),r=t&&t.getBoundingClientRect(),v=scr.getBoundingClientRect(),k=v.width/scr.offsetWidth||1;const o=document.createElement('div');o.className='launchov';o.textContent='CRESELL';
+  if(r){o.style.setProperty('--ox',((r.left+r.width/2-v.left)/k)+'px');o.style.setProperty('--oy',((r.top+r.height/2-v.top)/k)+'px');}
+  scr.appendChild(o);setTimeout(()=>{stack=[];go('home',{},true,'jump');},window.__still?0:700);},
+ launchx:()=>toast('시연용 바탕화면입니다. 크레셀 아이콘을 눌러 주세요'),
  topnoti:()=>{scr.querySelectorAll('.hbanner').forEach(e=>e.remove());const a=S.autoCh,q=a.on?quickFill(bm(),a.cr,a.days):null;
   setTimeout(()=>{const b=document.createElement('button');b.className='hbanner';
    if(a.on)b.dataset.act='autorun';else b.dataset.go='quick';
