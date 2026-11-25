@@ -382,6 +382,11 @@ html.app .scr .sbar{height:max(10px,env(safe-area-inset-top,0px));visibility:hid
 .scr.wf .bubble{border-radius:4px;border:1px solid #bbb;background:#f4f4f4}
 .scr.wf .toast,.scr.wf .slider .knob{border-radius:2px}
 .scr.wf .toast{display:none}
+.hbanner{position:absolute;left:10px;right:10px;top:8px;z-index:9;display:flex;gap:10px;align-items:flex-start;text-align:left;background:rgba(250,250,250,.97);color:#111418;border:1px solid #e3e6e4;border-radius:18px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.18);animation:hbin .38s cubic-bezier(.2,.8,.2,1)}
+.hbanner .ic{width:34px;height:34px;border-radius:9px;background:#0f6b55;color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex:none}
+.hbanner.out{animation:hbout .3s ease-in forwards}
+@keyframes hbin{from{transform:translateY(-120%);opacity:0}to{transform:none;opacity:1}}
+@keyframes hbout{to{transform:translateY(-120%);opacity:0}}
 .scr.wf .ladder div::before{background:#d0d0d0}.scr.wf .ladder div.on::before{background:#555}
 .scr.wf .mover{background:#e4e4e4;color:#333}
 .scr.wf .sheet{border-radius:0}
@@ -999,7 +1004,7 @@ def('my','H-01','마이페이지',null,()=>`${bigHdr('마이')}<div class="body"
   <div class="hcard mt16"><span class="tiny">판매 정산, 출금 가능</span><div class="row mt4"><span class="huge" style="font-size:28px"><span data-up="${avail()}">${won(avail())}</span></span><button class="btn sm" data-go="${S.bank.num?'withdraw':'bank'}" ${avail()>=MIN_WD?'':'disabled'}>출금</button></div>${pending()?`<div class="tiny mt4">정산 예정 ${won(pending())}</div>`:''}</div>
   <div class="list mt16" style="border-top:1px solid var(--line)">${navRow('자동 충전','','auto-charge',`<span class="tag ${S.autoCh.on?'a':''}">${S.autoCh.on?'켜짐':'꺼짐'}</span>`,'','zap')}${navRow('연결된 AI','','accounts',`<span class="tiny">${Object.keys(S.linked).filter(k=>S.linked[k]).join(', ')||'없음'}</span>`,'','link')}${navRow('알림','','notif-set','','','bell')}${navRow('결제 수단','','pay-manage',`<span class="tiny">${S.cards.length}개</span>`,'','card')}${navRow('정산 계좌','','bank',`<span class="tiny">${S.bank.num?S.bank.name:'미등록'}</span>`,'','wallet')}${navRow('친구 초대','','invite',S.invited?`<span class="tiny">${S.invited}명</span>`:'','','gift')}${navRow('고객센터','','chat','','','help')}${navRow('이용 가이드','','intro1','','data-k="g"','book')}</div>
   <div class="tiny mt16">과제 제출용</div>
-  <div class="list mt8" style="border-top:1px solid var(--line)"><button class="li" data-act="wfboard"><span class="ri">${I('list',19)}</span><span class="grow"><span class="t" style="font-size:15px">와이어프레임 보기</span><div class="tiny mt4">화면 ${MAIN.length}개와 연결선을 한 화면에서</div></span>${CHEV}</button></div>
+  <div class="list mt8" style="border-top:1px solid var(--line)"><button class="li" data-act="topnoti"><span class="ri">${I('bell',19)}</span><span class="grow"><span class="t" style="font-size:15px">상단 알림 예시 보기</span><div class="tiny mt4">한도에 걸렸을 때 화면 위로 내려오는 알림</div></span>${CHEV}</button><button class="li" data-act="wfboard"><span class="ri">${I('list',19)}</span><span class="grow"><span class="t" style="font-size:15px">와이어프레임 보기</span><div class="tiny mt4">화면 ${MAIN.length}개와 연결선을 한 화면에서</div></span>${CHEV}</button></div>
  </div>${tabs('my')}`,{tab:true});
 def('accounts','H-02','연결된 AI 계정 관리',null,()=>{const ask=S.unlinkAsk;return `${hdr('연결된 AI')}<div class="body">
   <div class="list">${['Claude','GPT','Gemini'].map(m=>{const on=S.linked[m];return `<div class="li ${S.newLink===m?'slidein':''}"><span class="grow"><span class="t">${m}</span><div class="tiny mt4">${on?`${!canSell(m)?'무료 이용':BASE[m]+' 구독'}${m===S.sellM?', 판매용':''}`:'미연결'}</div></span>${on?`<span class="tag a">${I('shield',12)}</span><button class="btn sm s" data-act="unlinkask" data-m="${m}" style="color:var(--bad)">해제</button>`:`<button class="btn sm s" data-go="oauth" data-m="${m}" data-add="1">연결</button>`}</div>`;}).join('')}</div>
@@ -1077,7 +1082,7 @@ def('report-issue','X-02','거래 문제 신고',null,()=>`${hdr('문제 신고'
 /* ---------- 라우터, 렌더, 움직임 ---------- */
 const MAIN=SC.filter(s=>!s.hidden);
 const scr=document.getElementById('scr');
-let cur='ext-push',param={},stack=[],timer=null,freshTimer=null,lastId=null,chargeRaf=null;
+let cur='home',param={},stack=[],timer=null,freshTimer=null,lastId=null,chargeRaf=null;
 const reduce=false;
 const PARENT={intro1:'splash',intro2:'intro1',intro3:'intro2',login:'intro3',terms:'login','term-sheet':'terms','pick-ai':'terms',oauth:'pick-ai',notif:'linked',
  invite:'home',inbox:'home','ai-reco':'home',filter:'market',search:'market',sort:'market',listing:'market',seller:'listing',quick:'home',cart:'market','pay-method':'cart','pay-confirm':'pay-method',fail:'market',
@@ -1164,6 +1169,11 @@ function toast(m){scr.querySelectorAll('.toast').forEach(e=>e.remove());const d=
 const later=(f,ms=320)=>setTimeout(f,window.__still?0:ms);
 
 const A={
+ topnoti:()=>{scr.querySelectorAll('.hbanner').forEach(e=>e.remove());const a=S.autoCh,q=a.on?quickFill(bm(),a.cr,a.days):null;
+  setTimeout(()=>{const b=document.createElement('button');b.className='hbanner';
+   if(a.on)b.dataset.act='autorun';else b.dataset.go='quick';
+   b.innerHTML=`<span class="ic">C</span><span class="grow"><span class="row"><b>크레셀</b><span class="tiny">지금</span></span><span style="font-size:13.5px;line-height:1.5;display:block;margin-top:2px">${a.on?`${bm()} 잔여 5%. 자동 충전 ${a.cr}크레딧, ${won(q.sum)}.`:`${bm()} 잔여 5%. 10크레딧 ${won(lowest(bm()))}부터 바로 충전할 수 있습니다.`}</span></span>`;
+   scr.appendChild(b);setTimeout(()=>{if(b.isConnected){b.classList.add('out');setTimeout(()=>b.remove(),320);}},6000);},350);},
  wfboard:()=>buildBoard('all',{view:true,wf:true,wfBack:S.wf}),
  back,
  cart:d=>{const l=byId(d.id),was=S.cart.size;S.cart.has(d.id)?S.cart.delete(d.id):S.cart.set(d.id,l.cr);S.cartTouched=true;S._popFoot=!was&&S.cart.size>0;render();},
