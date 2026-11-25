@@ -1411,6 +1411,8 @@ addEventListener('resize',fit);fit();
 
 /* 캡처용: 시간을 멈추고 화면을 바로 띄움 */
 window.cresell={go:id=>{window.__still=true;stack=[];S.t=0;if(id==='chat')chatStart('home');cur=id;param={};render('none');},list:()=>MAIN.map(s=>[s.id,s.code,s.name]),wf:v=>{S.wf=v;render('none');}};
+/* 앱으로 켜면 폰 바탕화면 없이 스플래시(타이포)부터 */
+if(document.documentElement.classList.contains('app'))cur='splash';
 const h=location.hash.slice(1); if(h&&SC.find(s=>s.id===h)){cur=h;if(h==='chat')chatStart('home');}
 render('jump');
 const canBack=()=>{const s=SC.find(x=>x.id===cur);return !!(s&&s.sheet)||stack.length>0||!!PARENT[cur];};
